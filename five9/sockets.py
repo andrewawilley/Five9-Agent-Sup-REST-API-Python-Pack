@@ -3,7 +3,7 @@ import logging
 
 import websockets
 
-from five9.client import VCC_Client
+from five9.client import VccClient
 from five9.config import CONTEXT_PATHS
 
 from five9.private.credentials import ACCOUNTS
@@ -11,7 +11,7 @@ from five9.private.credentials import ACCOUNTS
 
 
 class Five9SupervisorSocket:
-    def __init__(self, client: VCC_Client, socket_key: str = None, max_pings: int = 3):
+    def __init__(self, client: VccClient, socket_key: str = None, max_pings: int = 3):
         self.client = client
         socket_context_path = CONTEXT_PATHS["websocket_super"]
         self.uri = f"wss://{client.host}:{client.port}{CONTEXT_PATHS['websocket_super']}"

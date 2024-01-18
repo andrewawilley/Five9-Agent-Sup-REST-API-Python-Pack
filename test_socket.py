@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from five9.client import VCC_Client
+from five9.client import VccClient
 
 from five9.sockets import Five9SupervisorSocket
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     username = ACCOUNTS["default_test_account"]["username"]
     password = ACCOUNTS["default_test_account"]["password"]
 
-    c = VCC_Client(username=username, password=password, log_in_on_create=True)
+    c = VccClient(username=username, password=password, log_in_on_create=True)
     c.initialize_supervisor_session()
 
     # logging.debug(f"Token: {c.tokenId}")

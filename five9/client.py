@@ -10,106 +10,130 @@ from five9.methods.base import FiveNineRestMethod, SupervisorRestMethod, AgentRe
 from five9.methods import agent_methods, supervisor_methods
 
 
-class VCC_Client:
-    login_payload = {
-        "passwordCredentials": {
-            "username": None,
-            "password": None,
-        },
-        "appKey": "mypythonapp-supervisor-session",
-        "policy": "AttachExisting",
-    }
-
-    stationId = ""
-    stationType = "EMPTY"
-    stationState = "DISCONNECTED"
-
-    log_in_on_create = True
-
-    logged_in = False
-
-    class SupervisorRESTNamespace:
-        def __init__(self):
-            self._generate_rest_methods(supervisor_methods)
-
-        def _generate_rest_methods(self, module):
-            for name, obj in inspect.getmembers(module):
-                if inspect.isclass(obj) and issubclass(obj, SupervisorRestMethod):
-                    setattr(self, name, obj())
-
-    class AgentRESTNamespace:
-        def __init__(self):
-            self._generate_rest_methods(agent_methods)
-
-        def _generate_rest_methods(self, module):
-            for name, obj in inspect.getmembers(module):
-                if inspect.isclass(obj) and issubclass(obj, AgentRestMethod):
-                    setattr(self, name, obj())
-
+class VccClientSessionConfig:
     def __init__(self, *args, **kwargs):
-        logging.info("Initializing VCC_Client")
+        self.observers = []
 
-        self.login_payload["passwordCredentials"] = {
-            "username": kwargs["username"],
-            "password": kwargs["password"],
+        self.username = kwargs.get("username", "")
+        self.password = kwargs.get("password", "")
+
+        self.login_payload = {
+            "passwordCredentials": {
+                "username": self.username,
+                "password": self.password,
+            },
+            "appKey": "mypythonapp-supervisor-session",
+            "policy": "AttachExisting",
         }
 
-        self.log_in_on_create = kwargs.get("log_in_on_create", self.log_in_on_create)
+        self.login_url = kwargs.get(
+            "login_url", SETTINGS.get("FIVENINE_VCC_LOGIN_URL", "")
+        )
 
-        if self.log_in_on_create == True:
-            logging.debug("Logging in on create")
-            login_result = self.login()
+        self.login()
 
-    def login(self, auto_accept_notice=True):
+    def login(self, *args, **kwargs):
+        self.session_metadata = None
         try:
             login_request = requests.post(
                 SETTINGS.get("FIVENINE_VCC_LOGIN_URL", ""), json=self.login_payload
             )
         except Five9DuplicateLoginError:
-            login_request = requests.get(
-                SETTINGS.get("FIVENINE_VCC_METADATA_URL", "")
+            login_request = requests.get(SETTINGS.get("FIVENINE_VCC_METADATA_URL", ""))
+            logging.debug(
+                f"VccClientSessionConfig - Already Logged in, obtaining metadata: {login_request.json()}"
             )
-        
-        session_metadata = login_request.json()
-        self.session_cookies = login_request.cookies
-        if login_request.status_code == 200:
 
-            host = session_metadata["metadata"]["dataCenters"][0]["apiUrls"][0]["host"]
-            port = session_metadata["metadata"]["dataCenters"][0]["apiUrls"][0]["port"]
-            base_api_url = f"https://{host}:{port}"
+        self.session_metadata = login_request.json()
+        logging.debug(f"VccClientSessionConfig - Login Result: {self.session_metadata}")
 
-            self.tokenId = session_metadata["tokenId"]
-            self.host = host
-            self.port = port
-
-            logging.debug(f"Metadata Obtained - Base API URL: {base_api_url}")
-            FiveNineRestMethod.base_api_url = base_api_url
-            FiveNineRestMethod.orgId = session_metadata["orgId"]
-            FiveNineRestMethod.userId = session_metadata["userId"]
-            FiveNineRestMethod.farmId = session_metadata["context"]["farmId"]
-            FiveNineRestMethod.tokenId = session_metadata["tokenId"]
-            FiveNineRestMethod.api_header = {
-                "Authorization": f"Bearer-{session_metadata['tokenId']}",
-                "farmId": session_metadata["context"]["farmId"],
-                "Accept": "application/json, text/javascript",
-            }
-
-            self.logged_in = True
-
-            self.agent = self.AgentRESTNamespace()
-            self.supervisor = self.SupervisorRESTNamespace()
-
+        if self.session_metadata:
+            self.process_session_metadata()
+            return True
         else:
-            self.logged_in = False
+            return False
 
-        return self.logged_in
+    def process_session_metadata(self, *args, **kwargs):
+        self.host = self.session_metadata["metadata"]["dataCenters"][0]["apiUrls"][0][
+            "host"
+        ]
+        self.port = self.session_metadata["metadata"]["dataCenters"][0]["apiUrls"][0][
+            "port"
+        ]
 
-    def initialize_supervisor_session(
-        self, auto_accept_notice=True, supervisor_login_state=None
-    ):
-        current_supervisor_login_state = (
-            supervisor_login_state or self.supervisor_login_state
+        self.base_api_url = f"https://{self.host}:{self.port}"
+        self.base_api_url = self.base_api_url
+        self.orgId = self.session_metadata["orgId"]
+        self.userId = self.session_metadata["userId"]
+        self.farmId = self.session_metadata["context"]["farmId"]
+        self.tokenId = self.session_metadata["tokenId"]
+
+        self.api_header = {
+            "Authorization": f"Bearer-{self.tokenId}",
+            "farmId": self.farmId,
+            "Accept": "application/json, text/javascript",
+        }
+
+        logging.debug(f"Metadata Obtained - Base API URL: {self.base_api_url}")
+
+        self.notify_observers()
+
+        return True
+
+    def subscribe_observer(self, observer):
+        self.observers.append(observer)
+
+    def notify_observers(self, *args, **kwargs):
+        for observer in self.observers:
+            observer.update_config(self)
+
+
+REST_MODULES = {
+    "agent_methods": {
+        "module": agent_methods,
+        "sublass": AgentRestMethod,
+    },
+    "supervisor_methods": {
+        "module": supervisor_methods,
+        "sublass": SupervisorRestMethod,
+    },
+}
+
+
+class VccClient:
+    class RESTNamespace:
+        def __init__(
+            self, target_module, session_configuration: VccClientSessionConfig
+        ):
+            for name, obj in inspect.getmembers(REST_MODULES[target_module]["module"]):
+                if inspect.isclass(obj) and issubclass(
+                    obj, REST_MODULES[target_module]["sublass"]
+                ):
+                    setattr(self, name, obj(session_configuration))
+
+    def __init__(self, *args, **kwargs):
+        self.stationId = kwargs.get("stationId", "")
+        self.stationType = kwargs.get("stationType", "EMPTY")
+        self.stationState = kwargs.get("stationState", "DISCONNECTED")
+
+        self.log_in_on_create = kwargs.get("log_in_on_create", True)
+
+        self.logged_in = False
+
+        logging.info("Initializing VCC_Client")
+
+        self.session_configuration = VccClientSessionConfig(
+            username=kwargs["username"],
+            password=kwargs["password"],
         )
+
+        self.agent = self.RESTNamespace("agent_methods", self.session_configuration)
+        self.supervisor = self.RESTNamespace(
+            "supervisor_methods", self.session_configuration
+        )
+
+    def initialize_supervisor_session(self, auto_accept_notice=True):
+        current_supervisor_login_state = self.supervisor_login_state
 
         if (
             auto_accept_notice == True
@@ -132,10 +156,7 @@ class VCC_Client:
     def initialize_agent_session(self, auto_accept_notice=True, agent_login_state=None):
         current_agent_login_state = agent_login_state or self.agent_login_state
 
-        if (
-            auto_accept_notice == True 
-            and current_agent_login_state == "ACCEPT_NOTICE"
-        ):
+        if auto_accept_notice == True and current_agent_login_state == "ACCEPT_NOTICE":
             logging.info(f"Accepting Maintenance Notice for Agent: {self.userId}")
             notices = self.agent.MaintenanceNotices_Get.invoke()
             for notice in notices:
@@ -152,6 +173,7 @@ class VCC_Client:
 
     @property
     def supervisor_login_state(self):
+        logging.debug(f"Supervisor Login State: {self.supervisor.SupervisorLoginState.invoke()}")
         return self.supervisor.SupervisorLoginState.invoke()
 
     @property

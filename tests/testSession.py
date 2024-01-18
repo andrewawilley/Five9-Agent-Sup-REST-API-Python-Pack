@@ -3,7 +3,7 @@ import logging
 import unittest
 from unittest.mock import patch
 
-from five9.client import VCC_Client
+from five9.client import VccClient, VccClientSessionConfig
 
 from five9.sockets import Five9SupervisorSocket
 
@@ -22,22 +22,31 @@ logging.basicConfig(
 
 
 class TestCreateSessions(unittest.TestCase):
+    # def test_login(self):
+    #     username = ACCOUNTS["default_test_account"]["username"]
+    #     password = ACCOUNTS["default_test_account"]["password"]
+
+    #     session_config = VccClientSessionConfig(username=username, password=password)
+
+    #     expected_login_payload = {
+    #         "passwordCredentials": {
+    #             "username": username,
+    #             "password": password,
+    #         },
+    #         "appKey": "mypythonapp-supervisor-session",
+    #         "policy": "AttachExisting",
+    #     }
+
+    #     self.assertEqual(session_config.login_payload, expected_login_payload)
+
+    #     session_config.login()
+
     def test_supervisor_session(self):
         username = ACCOUNTS["default_test_account"]["username"]
         password = ACCOUNTS["default_test_account"]["password"]
 
-        c = VCC_Client(username=username, password=password, log_in_on_create=True)
+        c = VccClient(username=username, password=password)
         c.initialize_supervisor_session()
-        # expected_login_payload = {
-        #     "passwordCredentials": {
-        #         "username": username,
-        #         "password": password,
-        #     },
-        #     "appKey": "mypythonapp-supervisor-session",
-        #     "policy": "AttachExisting",
-        # }
-
-        # self.assertEqual(c.login_payload, expected_login_payload)      
 
         notices = c.supervisor.MaintenanceNoticesGet.invoke()
         c.supervisor.LogOut.invoke()
@@ -47,19 +56,8 @@ class TestCreateSessions(unittest.TestCase):
         username = ACCOUNTS["default_test_account"]["username"]
         password = ACCOUNTS["default_test_account"]["password"]
 
-        c = VCC_Client(username=username, password=password, log_in_on_create=True)
+        c = VccClient(username=username, password=password)
         c.initialize_agent_session()
-
-        # expected_login_payload = {
-        #     "passwordCredentials": {
-        #         "username": username,
-        #         "password": password,
-        #     },
-        #     "appKey": "mypythonapp-supervisor-session",
-        #     "policy": "AttachExisting",
-        # }
-
-        # self.assertEqual(c.login_payload, expected_login_payload)      
 
         notices = c.agent.MaintenanceNoticesGet.invoke()
         c.agent.LogOut.invoke()

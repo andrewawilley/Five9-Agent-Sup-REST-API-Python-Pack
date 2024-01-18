@@ -15,7 +15,7 @@ class MaintenanceNoticesGet(SupervisorRestMethod):
 
     def invoke(self):
         self.method = "GET"
-        self.path = f"/supervisors/{self.userId}/maintenance_notices"
+        self.path = f"/supervisors/{self.config.userId}/maintenance_notices"
         super().invoke()
         return self.response.json()
 
@@ -30,7 +30,7 @@ class MaintenanceNoticesAccept(SupervisorRestMethod):
 
     def invoke(self, noticeId):
         self.method = "PUT"
-        self.path = f"/supervisors/{self.userId}/maintenance_notices/{noticeId}/accept"
+        self.path = f"/supervisors/{self.config.userId}/maintenance_notices/{noticeId}/accept"
         super().invoke()
         return self.response.json()
 
@@ -40,7 +40,7 @@ class SupervisorLoginState(SupervisorRestMethod):
 
     def invoke(self):
         self.method = "GET"
-        self.path = f"/supervisors/{self.userId}/login_state"
+        self.path = f"/supervisors/{self.config.userId}/login_state"
         super().invoke()
         return self.response.text.strip('"')
 
@@ -60,7 +60,7 @@ class SupervisorSessionStart(SupervisorRestMethod):
 
     def invoke(self, stationId="", stationType="EMPTY", stationState="DISCONNECTED"):
         self.method = "PUT"
-        self.path = f"/supervisors/{self.userId}/session_start"
+        self.path = f"/supervisors/{self.config.userId}/session_start"
         payload = {
             "state": stationState,
             "stationId": stationId,

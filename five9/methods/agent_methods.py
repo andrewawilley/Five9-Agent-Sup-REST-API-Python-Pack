@@ -19,7 +19,7 @@ class MaintenanceNoticesGet(AgentRestMethod):
 
     def invoke(self):
         self.method = "GET"
-        self.path = f"/agents/{self.userId}/maintenance_notices"
+        self.path = f"/agents/{self.config.userId}/maintenance_notices"
         super().invoke()
         return self.response.json()
 
@@ -34,7 +34,7 @@ class MaintenanceNoticesAccept(AgentRestMethod):
 
     def invoke(self, noticeId):
         self.method = "PUT"
-        self.path = f"/agents/{self.userId}/maintenance_notices/{noticeId}/accept"
+        self.path = f"/agents/{self.config.userId}/maintenance_notices/{noticeId}/accept"
         super().invoke()
         return self.response.json()
     
@@ -44,7 +44,7 @@ class AgentLoginState(AgentRestMethod):
 
     def invoke(self):
         self.method = "GET"
-        self.path = f"/agents/{self.userId}/login_state"
+        self.path = f"/agents/{self.config.userId}/login_state"
         super().invoke()
         return self.response.text.strip('"')
 
@@ -64,7 +64,7 @@ class AgentSessionStart(AgentRestMethod):
 
     def invoke(self, stationId="", stationType="EMPTY", stationState="DISCONNECTED"):
         self.method = "PUT"
-        self.path = f"/agents/{self.userId}/session_start"
+        self.path = f"/agents/{self.config.userId}/session_start"
         payload = {
             "state": stationState,
             "stationId": stationId,

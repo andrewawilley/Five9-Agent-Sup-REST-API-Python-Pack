@@ -9,18 +9,23 @@ from five9.config import CONTEXT_PATHS
 class FiveNineRestMethod:
     # """Base class for all Five9 REST methods.
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, config, *args, **kwargs):
         self.call_count = 0
+        self.update_config(config)
+
+    def update_config(self, config):
+        self.config = config
+        config.subscribe_observer(self)
 
     def invoke(self, *args, **kwargs):
-        url = f"{self.base_api_url}{self.context_path}{self.path}"
+        url = f"{self.config.base_api_url}{self.context_path}{self.path}"
         qstring_params = kwargs.get("qstring_params", None)
         payload = kwargs.get("payload", None)
 
         req = requests.Request(
             method=self.method,
             url=url,
-            headers=self.api_header,
+            headers=self.config.api_header,
         )
 
         if self.method != "GET" and payload:
@@ -35,7 +40,7 @@ class FiveNineRestMethod:
         try:
             self.response = requests.Session().send(prepared_request)
             self.response.raise_for_status()
-            logging.debug(f"RESPONSE: {self.response.text}")
+            logging.debug(f"RESPONSE {self.response.status_code}: {self.response.text}")
 
         except requests.exceptions.HTTPError as errh:
             logging.error(f"FiveNineRestMethod - HTTP Error: {errh}")

@@ -5,6 +5,7 @@ import requests
 
 from five9.config import CONTEXT_PATHS
 
+
 class FiveNineRestMethod:
     # """Base class for all Five9 REST methods.
 
@@ -15,8 +16,6 @@ class FiveNineRestMethod:
         url = f"{self.base_api_url}{self.context_path}{self.path}"
         qstring_params = kwargs.get("qstring_params", None)
         payload = kwargs.get("payload", None)
-
-        logging.debug(f"URL: {url}")
 
         req = requests.Request(
             method=self.method,
@@ -31,7 +30,7 @@ class FiveNineRestMethod:
 
         prepared_request = req.prepare()
 
-        logging.debug(f"PREPARED REQUEST: {prepared_request.__dict__}")
+        logging.debug(f"FiveNineRestMethod Prepared Request:\n{prepared_request.__dict__}")
 
         try:
             self.response = requests.Session().send(prepared_request)

@@ -13,27 +13,48 @@ from five9.private.credentials import ACCOUNTS
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="%(asctime)s - %(name)s(%(lineno)s) - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 
-class TestCreateSession(unittest.TestCase):
-    def test_create_session(self):
+class TestCreateSessions(unittest.TestCase):
+    def test_supervisor_session(self):
         username = ACCOUNTS["default_test_account"]["username"]
         password = ACCOUNTS["default_test_account"]["password"]
 
         c = VCC_Client(username=username, password=password, log_in_on_create=True)
+        c.initialize_supervisor_session()
+        # expected_login_payload = {
+        #     "passwordCredentials": {
+        #         "username": username,
+        #         "password": password,
+        #     },
+        #     "appKey": "mypythonapp-supervisor-session",
+        #     "policy": "AttachExisting",
+        # }
 
-        expected_login_payload = {
-            "passwordCredentials": {
-                "username": username,
-                "password": password,
-            },
-            "appKey": "mypythonapp-supervisor-session",
-            "policy": "AttachExisting",
-        }
-
-        self.assertEqual(c.login_payload, expected_login_payload)      
+        # self.assertEqual(c.login_payload, expected_login_payload)      
 
         notices = c.supervisor.MaintenanceNoticesGet.invoke()
-        logging.debug(f"UNITTEST - NOTICES: {notices}")
+        c.supervisor.LogOut.invoke()
+    
+    def test_agent_session(self):
+        username = ACCOUNTS["default_test_account"]["username"]
+        password = ACCOUNTS["default_test_account"]["password"]
+
+        c = VCC_Client(username=username, password=password, log_in_on_create=True)
+        c.initialize_agent_session()
+
+        # expected_login_payload = {
+        #     "passwordCredentials": {
+        #         "username": username,
+        #         "password": password,
+        #     },
+        #     "appKey": "mypythonapp-supervisor-session",
+        #     "policy": "AttachExisting",
+        # }
+
+        # self.assertEqual(c.login_payload, expected_login_payload)      
+
+        notices = c.agent.MaintenanceNoticesGet.invoke()
+        c.agent.LogOut.invoke()

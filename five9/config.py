@@ -1,5 +1,6 @@
 SETTINGS = {
     "FIVENINE_VCC_LOGIN_URL": "https://app.five9.com/appsvcs/rs/svc/auth/login",
+    "FIVENINE_VCC_METADATA_URL": "https://app.five9.com/appsvcs/rs/svc/metadata",
     "logging_level": "DEBUG",
 }
 

@@ -60,23 +60,29 @@ class VCC_Client:
             login_result = self.login()
 
     def login(self, auto_accept_notice=True):
-        login_request = requests.post(
-            SETTINGS.get("FIVENINE_VCC_LOGIN_URL", ""), json=self.login_payload
-        )
-        login_response = login_request.json()
+        try:
+            login_request = requests.post(
+                SETTINGS.get("FIVENINE_VCC_LOGIN_URL", ""), json=self.login_payload
+            )
+        except Five9DuplicateLoginError:
+            login_request = requests.get(
+                SETTINGS.get("FIVENINE_VCC_METADATA_URL", "")
+            )
+        
+        session_metadata = login_request.json()
         if login_request.status_code == 200:
-            host = login_response["metadata"]["dataCenters"][0]["apiUrls"][0]["host"]
-            port = login_response["metadata"]["dataCenters"][0]["apiUrls"][0]["port"]
+            host = session_metadata["metadata"]["dataCenters"][0]["apiUrls"][0]["host"]
+            port = session_metadata["metadata"]["dataCenters"][0]["apiUrls"][0]["port"]
             base_api_url = f"https://{host}:{port}"
             logging.debug(f"Metadata Obtained - Base API URL: {base_api_url}")
             FiveNineRestMethod.base_api_url = base_api_url
-            FiveNineRestMethod.orgId = login_response["orgId"]
-            FiveNineRestMethod.userId = login_response["userId"]
-            FiveNineRestMethod.farmId = login_response["context"]["farmId"]
-            FiveNineRestMethod.tokenId = login_response["tokenId"]
+            FiveNineRestMethod.orgId = session_metadata["orgId"]
+            FiveNineRestMethod.userId = session_metadata["userId"]
+            FiveNineRestMethod.farmId = session_metadata["context"]["farmId"]
+            FiveNineRestMethod.tokenId = session_metadata["tokenId"]
             FiveNineRestMethod.api_header = {
-                "Authorization": f"Bearer-{login_response['tokenId']}",
-                "farmId": login_response["context"]["farmId"],
+                "Authorization": f"Bearer-{session_metadata['tokenId']}",
+                "farmId": session_metadata["context"]["farmId"],
                 "Accept": "application/json, text/javascript",
             }
 
@@ -85,62 +91,64 @@ class VCC_Client:
             self.agent = self.AgentRESTNamespace()
             self.supervisor = self.SupervisorRESTNamespace()
 
-            current_supervisor_login_state = self.supervisor_login_state
-
-            logging.info(f"Current Supervisor Login State: {current_supervisor_login_state}")
-
-            if (
-                auto_accept_notice == True
-                and current_supervisor_login_state == "ACCEPT_NOTICE"
-            ):
-                logging.info(
-                    f"Accepting Maintenance Notice for Supervisor: {self.userId}"
-                )
-                notices = self.supervisor.MaintenanceNotices_Get.invoke()
-                for notice in notices:
-                    if notice["accepted"] == False:
-                        self.supervisor.AcceptMaintenanceNotice(notice["id"])
-                        logging.info(f"Accepted Maintenance Notice: {notice['id']}")
-                # self.supervisor.AcceptMaintenanceNotice.invoke()
-
-            if current_supervisor_login_state == "SELECT_STATION":
-                start_session = self.supervisor.SupervisorSessionStart.invoke(
-                    self.stationId, self.stationType, self.stationState
-                )
-                logging.debug(f"Login Result: {start_session}")
-
         else:
             self.logged_in = False
 
         return self.logged_in
 
-    # @property
-    # def agent_login_state(self):
-    #     s = requests.Session()
-    #     url = f"/agents/{self.userId}/login_state"
-    #     url = f"{self.base_api_url}{CONTEXT_PATHS["agent_rest"]}{url}"
-    #     req = requests.Request(
-    #         method="GET",
-    #         url=url,
-    #         headers=self.api_header,
-    #     )
-    #     prepped = req.prepare()
-    #     response = s.send(prepped)
-    #     return response.text
+    def initialize_supervisor_session(
+        self, auto_accept_notice=True, supervisor_login_state=None
+    ):
+        current_supervisor_login_state = (
+            supervisor_login_state or self.supervisor_login_state
+        )
+
+        if (
+            auto_accept_notice == True
+            and current_supervisor_login_state == "ACCEPT_NOTICE"
+        ):
+            logging.info(f"Accepting Maintenance Notice for Supervisor: {self.userId}")
+            notices = self.supervisor.MaintenanceNotices_Get.invoke()
+            for notice in notices:
+                if notice["accepted"] == False:
+                    self.supervisor.AcceptMaintenanceNotice(notice["id"])
+                    logging.info(f"Accepted Maintenance Notice: {notice['id']}")
+            # self.supervisor.AcceptMaintenanceNotice.invoke()
+
+        if current_supervisor_login_state == "SELECT_STATION":
+            start_session = self.supervisor.SupervisorSessionStart.invoke(
+                self.stationId, self.stationType, self.stationState
+            )
+            logging.debug(f"Login Result: {start_session}")
+
+    def initialize_agent_session(self, auto_accept_notice=True, agent_login_state=None):
+        current_agent_login_state = agent_login_state or self.agent_login_state
+
+        if (
+            auto_accept_notice == True 
+            and current_agent_login_state == "ACCEPT_NOTICE"
+        ):
+            logging.info(f"Accepting Maintenance Notice for Agent: {self.userId}")
+            notices = self.agent.MaintenanceNotices_Get.invoke()
+            for notice in notices:
+                if notice["accepted"] == False:
+                    self.agent.AcceptMaintenanceNotice(notice["id"])
+                    logging.info(f"Accepted Maintenance Notice: {notice['id']}")
+            # self.supervisor.AcceptMaintenanceNotice.invoke()
+
+        if current_agent_login_state == "SELECT_STATION":
+            start_session = self.agent.AgentSessionStart.invoke(
+                self.stationId, self.stationType, self.stationState
+            )
+            logging.debug(f"Login Result: {start_session}")
 
     @property
     def supervisor_login_state(self):
         return self.supervisor.SupervisorLoginState.invoke()
 
-    # def start_agent_session(self):
-    #     if self.agent_login_state == '"SELECT_STATION"':
-    #         logging.info("Starting Agent Session")
-    #         self.agent.AgentSessionStart()
-
-    # def start_supervisor_session(self):
-    #     if self.supervisor_login_state == '"SELECT_STATION"':
-    #         logging.info("Starting Supervisor Session")
-    #         self.supervisor.SupervisorSessionStart(self)
+    @property
+    def agent_login_state(self):
+        return self.agent.AgentLoginState.invoke()
 
     # login metadata payload sample = {
     #     'tokenId': '8da2a97a-3c4d-11e9-a2f1-005056a7f388',

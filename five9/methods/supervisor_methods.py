@@ -2,6 +2,7 @@ import logging
 
 from .base import SupervisorRestMethod
 from five9.config import CONTEXT_PATHS
+from five9.exceptions import Five9DuplicateLoginError
 
 
 class MaintenanceNoticesGet(SupervisorRestMethod):
@@ -40,19 +41,18 @@ class SupervisorLoginState(SupervisorRestMethod):
     def invoke(self):
         self.method = "GET"
         self.path = f"/supervisors/{self.userId}/login_state"
-        logging.debug(f"URL: {self.base_api_url}{self.context_path}{self.path}")
         super().invoke()
         return self.response.text.strip('"')
 
 
 class SupervisorSessionStart(SupervisorRestMethod):
-    """Creates a session and registers the station for the agent.
+    """Registers the station for the supervisor.
     PUT /supervisors/{supervisorId}/session_start
 
     The initial login state must be in SELECT_STATION state. This request
-    modifies the agent’s login state. If successful, the request changes the
+    modifies the supervisor’s login state. If successful, the request changes the
     LoginState value and sends the EVENT_STATION_UPDATED and
-    EVENT_LOGIN_STATE_UPDATED events. The agent must have the
+    EVENT_LOGIN_STATE_UPDATED events. The supervisor must have the
     CAN_RUN_WEB_AGENT permission
     """
 
@@ -67,6 +67,27 @@ class SupervisorSessionStart(SupervisorRestMethod):
             "stationType": stationType,
         }
         super().invoke(payload=payload)
+        if self.response.status_code < 400:
+            return
+        
+        else:
+            exception_details = self.response.json()
+            if exception_details.get("five9ExceptionDetail", {}).get("context", {}).get("contextCode", "") == "DUPLICATE_LOGIN": 
+                raise Five9DuplicateLoginError(f"Already Logged In: {self.response.status_code} - {self.response.json()}")
+            raise Exception(f"Error: {self.response.status_code} - {self.response.text}")
+        
+class LogOut(SupervisorRestMethod):
+    """Logs out the supervisor.
+    PUT /auth/logout
+
+    """
+
+    method_name = "Supervisor:LogOut"
+
+    def invoke(self):
+        self.method = "POST"
+        self.path = f"/auth/logout"
+        super().invoke()
         if self.response.status_code < 400:
             return
         

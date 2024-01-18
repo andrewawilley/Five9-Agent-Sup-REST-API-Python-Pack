@@ -5,6 +5,7 @@ from typing import Dict, Any
 import requests
 
 from five9.config import SETTINGS
+from five9.exceptions import Five9DuplicateLoginError
 from five9.methods.base import FiveNineRestMethod, SupervisorRestMethod, AgentRestMethod
 from five9.methods import agent_methods, supervisor_methods
 

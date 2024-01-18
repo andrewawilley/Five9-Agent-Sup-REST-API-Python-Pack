@@ -1,0 +1,4 @@
+[report]
+exclude_also = 
+    logging*
+    requests.exceptions*

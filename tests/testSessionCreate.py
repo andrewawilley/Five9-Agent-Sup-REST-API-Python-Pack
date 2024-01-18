@@ -4,7 +4,11 @@ import unittest
 from unittest.mock import patch
 
 from five9.client import VCC_Client
+
+from five9.sockets import Five9SupervisorSocket
+
 from five9.private.credentials import ACCOUNTS
+
 
 # run with coverage
 # coverage run -m unittest discover -s tests -p "test*.py" -v
@@ -37,6 +41,7 @@ class TestCreateSessions(unittest.TestCase):
 
         notices = c.supervisor.MaintenanceNoticesGet.invoke()
         c.supervisor.LogOut.invoke()
+
     
     def test_agent_session(self):
         username = ACCOUNTS["default_test_account"]["username"]

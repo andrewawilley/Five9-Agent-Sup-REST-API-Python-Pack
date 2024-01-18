@@ -12,6 +12,6 @@ CONTEXT_PATHS = {
     # Supervisor REST API Services
     "sup_rest": "/supsvcs/rs/svc",
     
-    "websocket_agent": "/appsvcs/ws/${this.randomSocketKey}_agent",
-    "websocket_super": "/supsvcs/sws/${this.randomSocketKey}_super",
+    "websocket_agent": "/appsvcs/ws/{socket_key}_agent",
+    "websocket_super": "/supsvcs/sws/{socket_key}_super",
 }

@@ -71,10 +71,17 @@ class VCC_Client:
             )
         
         session_metadata = login_request.json()
+        self.session_cookies = login_request.cookies
         if login_request.status_code == 200:
+
             host = session_metadata["metadata"]["dataCenters"][0]["apiUrls"][0]["host"]
             port = session_metadata["metadata"]["dataCenters"][0]["apiUrls"][0]["port"]
             base_api_url = f"https://{host}:{port}"
+
+            self.tokenId = session_metadata["tokenId"]
+            self.host = host
+            self.port = port
+
             logging.debug(f"Metadata Obtained - Base API URL: {base_api_url}")
             FiveNineRestMethod.base_api_url = base_api_url
             FiveNineRestMethod.orgId = session_metadata["orgId"]

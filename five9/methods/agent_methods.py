@@ -72,11 +72,14 @@ class AgentSessionStart(AgentRestMethod):
         }
         super().invoke(payload=payload)
         if self.response.status_code < 400:
-            return
+            return self.response
         
         else:
+            exception_details = self.response.json()
+            if exception_details.get("five9ExceptionDetail", {}).get("context", {}).get("contextCode", "") == "DUPLICATE_LOGIN": 
+                raise Five9DuplicateLoginError(f"Already Logged In: {self.response.status_code} - {self.response.json()}")
             raise Exception(f"Error: {self.response.status_code} - {self.response.text}")
-        
+                
 class LogOut(AgentRestMethod):
     """Logs out the agent.
     PUT /auth/logout

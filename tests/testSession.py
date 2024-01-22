@@ -16,48 +16,37 @@ from five9.private.credentials import ACCOUNTS
 
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 
 class TestCreateSessions(unittest.TestCase):
-    # def test_login(self):
-    #     username = ACCOUNTS["default_test_account"]["username"]
-    #     password = ACCOUNTS["default_test_account"]["password"]
+    def setUp(self):
+        logging.debug("setUp")
+        self.username = ACCOUNTS["default_test_account"]["username"]
+        self.password = ACCOUNTS["default_test_account"]["password"]
+        self.client = VccClient(username=self.username, password=self.password)
+        
 
-    #     session_config = VccClientSessionConfig(username=username, password=password)
+    def tearDown(self) -> None:
+        # logging out can be invoked on either the supervisor or agent session
+        # and will close both sessions if they are open
+        self.client.supervisor.LogOut.invoke()
 
-    #     expected_login_payload = {
-    #         "passwordCredentials": {
-    #             "username": username,
-    #             "password": password,
-    #         },
-    #         "appKey": "mypythonapp-supervisor-session",
-    #         "policy": "AttachExisting",
-    #     }
-
-    #     self.assertEqual(session_config.login_payload, expected_login_payload)
-
-    #     session_config.login()
+    def test_session(self):
+        self.assertIsInstance(self.client, VccClient)
 
     def test_supervisor_session(self):
-        username = ACCOUNTS["default_test_account"]["username"]
-        password = ACCOUNTS["default_test_account"]["password"]
+        self.assertEqual(self.client.supervisor_login_state, "SELECT_STATION")
+        self.client.initialize_supervisor_session()
+        self.assertEqual(self.client.supervisor_login_state, "WORKING")
 
-        c = VccClient(username=username, password=password)
-        c.initialize_supervisor_session()
-
-        notices = c.supervisor.MaintenanceNoticesGet.invoke()
-        c.supervisor.LogOut.invoke()
-
-    
-    def test_agent_session(self):
-        username = ACCOUNTS["default_test_account"]["username"]
-        password = ACCOUNTS["default_test_account"]["password"]
-
-        c = VccClient(username=username, password=password)
-        c.initialize_agent_session()
-
-        notices = c.agent.MaintenanceNoticesGet.invoke()
-        c.agent.LogOut.invoke()
+    def test_agent_session(self):        
+        self.assertEqual(self.client.agent_login_state, "SELECT_STATION")
+        self.client.initialize_agent_session()        
+        self.assertIn(self.client.agent_login_state, ["WORKING", "SELECT_SKILLS"])
+        
+    def test_supervisor_socket(self):
+        supervisor_socket = Five9SupervisorSocket(self.client)
+        self.assertIsInstance(self.socket, Five9SupervisorSocket)

@@ -35,38 +35,40 @@ class FiveNineRestMethod:
 
         prepared_request = req.prepare()
 
-        logging.debug(f"FiveNineRestMethod Prepared Request:\n{prepared_request.__dict__}")
+        logging.debug(
+            f"FiveNineRestMethod Prepared Request:\n{prepared_request.__dict__}"
+        )
 
         try:
             self.response = requests.Session().send(prepared_request)
-            self.response.raise_for_status()
-            logging.debug(f"RESPONSE {self.response.status_code}: {self.response.text}")
+            # self.response.raise_for_status()
+            logging.info(f"{self.method_name} - RESPONSE: {self.response.status_code}")
+            logging.debug(f"{self.method_name} -    TEXT: {self.response.text}")
 
         except requests.exceptions.HTTPError as errh:
-            logging.error(f"FiveNineRestMethod - HTTP Error: {errh}")
+            logging.error(f"{self.method_name} - HTTP Error: {errh}")
         except requests.exceptions.ConnectionError as errc:
-            logging.error(f"FiveNineRestMethod - Error Connecting: {errc}")
+            logging.error(f"{self.method_name} - Error Connecting: {errc}")
         except requests.exceptions.Timeout as errt:
-            logging.error(f"FiveNineRestMethod - Timeout Error: {errt}")
+            logging.error(f"{self.method_name} - Timeout Error: {errt}")
         except requests.exceptions.RequestException as err:
-            logging.error(f"FiveNineRestMethod - Unexpected Error: {err}")
+            logging.error(f"{self.method_name} - Unexpected Error: {err}")
+        
+        return self.response
 
 
 class SupervisorRestMethod(FiveNineRestMethod):
-    """Base class for all Five9 Supervisor REST methods.
+    """Base class for all Five9 Supervisor REST methods."""
 
-    """
     context_path = CONTEXT_PATHS["sup_rest"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    
 
 class AgentRestMethod(FiveNineRestMethod):
-    """Base class for all Five9 Agent REST methods.
+    """Base class for all Five9 Agent REST methods."""
 
-    """
     context_path = CONTEXT_PATHS["agent_rest"]
 
     def __init__(self, *args, **kwargs):

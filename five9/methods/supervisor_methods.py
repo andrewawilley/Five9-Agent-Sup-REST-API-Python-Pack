@@ -68,7 +68,7 @@ class SupervisorSessionStart(SupervisorRestMethod):
         }
         super().invoke(payload=payload)
         if self.response.status_code < 400:
-            return
+            return self.response
         
         else:
             exception_details = self.response.json()

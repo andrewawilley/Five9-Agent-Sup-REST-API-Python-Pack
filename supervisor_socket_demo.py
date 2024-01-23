@@ -1,8 +1,8 @@
 import asyncio
 import logging
 
-from five9.client import VccClient
-from five9.sockets import Five9SupervisorSocket
+from five9.client import VccClient, Five9Socket
+from five9.methods.socket_handlers import SocketEventHandler
 
 from five9.private.credentials import ACCOUNTS
 
@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     # logging.debug(f"Token: {c.tokenId}")
 
-    supervisor_socket = Five9SupervisorSocket(client)
+    supervisor_socket = Five9Socket(client, "supervisor", "demo_script")
 
     # Run the connect method to start the WebSocket connection
     asyncio.run(supervisor_socket.connect())

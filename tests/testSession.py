@@ -1,11 +1,11 @@
 import logging
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from five9.client import VccClient, VccClientSessionConfig
 
-from five9.sockets import Five9SupervisorSocket
+from five9.methods.socket_handlers import Five9SupervisorSocket
 
 from five9.private.credentials import ACCOUNTS
 

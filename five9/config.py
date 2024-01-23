@@ -13,5 +13,5 @@ CONTEXT_PATHS = {
     "sup_rest": "/supsvcs/rs/svc",
     
     "websocket_agent": "/appsvcs/ws/{socket_key}_agent",
-    "websocket_super": "/supsvcs/sws/{socket_key}_super",
+    "websocket_supervisor": "/supsvcs/sws/{socket_key}_super",
 }

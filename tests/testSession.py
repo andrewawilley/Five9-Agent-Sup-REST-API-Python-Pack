@@ -12,7 +12,7 @@ from five9.private.credentials import ACCOUNTS
 
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
@@ -35,14 +35,12 @@ class TestCreateSessions(unittest.TestCase):
         self.client.initialize_supervisor_session()
         self.assertEqual(self.client.supervisor_login_state, "WORKING")
 
-
-
     def test_agent_session(self):        
         self.assertEqual(self.client.agent_login_state, "SELECT_STATION")
         self.client.initialize_agent_session()        
         self.assertIn(self.client.agent_login_state, ["WORKING", "SELECT_SKILLS"])
         
     def test_supervisor_socket(self):
+        self.client.initialize_supervisor_session()
         supervisor_socket = Five9Socket(self.client, "supervisor", "unittests")
-        self.assertIsInstance(supervisor_socket, Five9Socket)
-        asyncio.run(supervisor_socket.connect())
+        supervisor_socket.connect()

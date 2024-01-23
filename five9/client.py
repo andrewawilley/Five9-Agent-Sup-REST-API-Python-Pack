@@ -196,8 +196,10 @@ class Five9RestClient:
                     "Supervisor already logged in, logging out, please try again."
                 )
                 self.supervisor.LogOut.invoke()
+                return False
 
             logging.debug(f"SUPERVISOR SESSION STARTED Result: {session.__dict__}")
+            return True
 
     def initialize_agent_session(self, auto_accept_notice=True):
         current_agent_login_state = self.agent_login_state
@@ -206,10 +208,19 @@ class Five9RestClient:
             current_agent_login_state = self.agent_login_state
 
         if current_agent_login_state == "SELECT_STATION":
-            session = self.agent.AgentSessionStart.invoke(
-                self.stationId, self.stationType, self.stationState
-            )
+            try:
+                session = self.agent.AgentSessionStart.invoke(
+                    self.stationId, self.stationType, self.stationState
+                )
+                logging.debug(f"AGENT SESSION STARTED Result: {session.__dict__}")
+
+            except Five9DuplicateLoginError:
+                logging.info("Agent already logged in, logging out, please try again.")
+                self.agent.LogOut.invoke()
+                return False
+
             logging.debug(f"AGENT SESSION STARTED Result: {session.__dict__}")
+            return True
 
     @property
     def supervisor_login_state(self):
@@ -288,7 +299,7 @@ class Five9Socket:
         # Use the passed event loop to schedule the close coroutine
         asyncio.run_coroutine_threadsafe(self.close(), loop)
 
-    async def connect(self):
+    async def _connect(self):
         headers = {
             "Authorization": f"Bearer-{self.client.session_configuration.tokenId}",  # Use the token provided during initialization
             "Cookie": self.client.session_configuration.cookies_header,  # Use the cookies provided during initialization
@@ -302,6 +313,9 @@ class Five9Socket:
                 self.handle_messages(websocket),
                 self.listen_for_disconnect(),
             )
+
+    def connect(self):
+        asyncio.run(self._connect())
 
     async def close(self):
         if hasattr(self, "websocket") and self.websocket and self.websocket.open:

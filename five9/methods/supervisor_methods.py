@@ -60,6 +60,7 @@ class SupervisorSessionStart(SupervisorRestMethod):
             "stationType": stationType,
         }
         super().invoke(payload=payload)
+        # Special handling for the supervisor session start response
         if self.response.status_code < 400:
             return self.response
         
@@ -80,13 +81,7 @@ class LogOut(SupervisorRestMethod):
         self.method = "POST"
         self.path = f"/auth/logout"
         super().invoke()
-        if self.response.status_code < 400:
-            return
-        
-        else:
-            raise Exception(f"Error: {self.response.status_code} - {self.response.text}")
-
-
+        return self.response
 
 class DomainQueues(SupervisorRestMethod):
     """Returns an array of all queues in the domain.

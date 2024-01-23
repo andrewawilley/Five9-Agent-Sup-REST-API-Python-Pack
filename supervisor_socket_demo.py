@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from five9.client import Five9RestClient, Five9Socket
@@ -55,10 +54,10 @@ if __name__ == "__main__":
     client.initialize_supervisor_session()
 
     queues = client.supervisor.DomainQueues.invoke()
-    print(queues)
-    # logging.debug(f"Token: {c.tokenId}")
-
+    
+       
     supervisor_socket = Five9Socket(client, "supervisor", "demo_script")
 
     # Run the connect method to start the WebSocket connection
-    asyncio.run(supervisor_socket.connect())
+    supervisor_socket.connect()
+    client.supervisor.LogOut.invoke()

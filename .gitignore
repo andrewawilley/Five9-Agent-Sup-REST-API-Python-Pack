@@ -42,6 +42,7 @@ venvs/
 
 git_exclude/
 private/
+private*
 *.db
 *.sqlite3*
 

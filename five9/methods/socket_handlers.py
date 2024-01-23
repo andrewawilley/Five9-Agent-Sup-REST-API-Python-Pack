@@ -14,7 +14,8 @@ class SocketEventHandler:
     async def handle(self, event):
         """Handles an event received from the socket
         """
-        logging.info(f"Generic Handler EVENT: {event["context"]["eventId"]} - {event["context"]["eventReason"]}")
+        # logging.info(f"Generic Handler EVENT: {event["context"]["eventId"]} - {event["context"]["eventReason"]}}")
+        logging.info(f"Generic Handler EVENT: {event["context"]["eventId"]} - {event["context"]["eventReason"]} - Payload:\n{event["payLoad"]}\n")
         return
 
 class DefaultEventHandler1202(SocketEventHandler):

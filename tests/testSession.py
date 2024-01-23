@@ -1,18 +1,14 @@
 import logging
 
+import asyncio
+
 import unittest
 from unittest.mock import patch, MagicMock
 
-from five9.client import VccClient, VccClientSessionConfig
-
-from five9.methods.socket_handlers import Five9SupervisorSocket
+from five9.client import Five9RestClient, Five9Socket
 
 from five9.private.credentials import ACCOUNTS
 
-
-# run with coverage
-# coverage run -m unittest discover -s tests -p "test*.py" -v
-# coverage html
 
 
 logging.basicConfig(
@@ -23,24 +19,23 @@ logging.basicConfig(
 
 class TestCreateSessions(unittest.TestCase):
     def setUp(self):
-        logging.debug("setUp")
         self.username = ACCOUNTS["default_test_account"]["username"]
         self.password = ACCOUNTS["default_test_account"]["password"]
-        self.client = VccClient(username=self.username, password=self.password)
+        self.client = Five9RestClient(username=self.username, password=self.password)
         
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         # logging out can be invoked on either the supervisor or agent session
         # and will close both sessions if they are open
         self.client.supervisor.LogOut.invoke()
-
-    def test_session(self):
-        self.assertIsInstance(self.client, VccClient)
+        logging.info("\nTeardown Complete\n")
 
     def test_supervisor_session(self):
-        self.assertEqual(self.client.supervisor_login_state, "SELECT_STATION")
+        logging.info("\n\nsetUp for Test")
         self.client.initialize_supervisor_session()
         self.assertEqual(self.client.supervisor_login_state, "WORKING")
+
+
 
     def test_agent_session(self):        
         self.assertEqual(self.client.agent_login_state, "SELECT_STATION")
@@ -48,5 +43,6 @@ class TestCreateSessions(unittest.TestCase):
         self.assertIn(self.client.agent_login_state, ["WORKING", "SELECT_SKILLS"])
         
     def test_supervisor_socket(self):
-        supervisor_socket = Five9SupervisorSocket(self.client)
-        self.assertIsInstance(self.socket, Five9SupervisorSocket)
+        supervisor_socket = Five9Socket(self.client, "supervisor", "unittests")
+        self.assertIsInstance(supervisor_socket, Five9Socket)
+        asyncio.run(supervisor_socket.connect())

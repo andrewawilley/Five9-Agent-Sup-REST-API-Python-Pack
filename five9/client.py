@@ -9,6 +9,8 @@ import websockets
 from five9.config import CONTEXT_PATHS
 from five9.config import SETTINGS
 
+from five9.exceptions import Five9DuplicateLoginError
+
 from five9.methods.base import SupervisorRestMethod, AgentRestMethod
 from five9.methods import agent_methods, supervisor_methods
 
@@ -32,7 +34,7 @@ DEFAULT_HANDLERS = {
 }
 
 
-class VccClientSessionConfig:
+class Five9RestClientSessionConfig:
     def __init__(self, *args, **kwargs):
         self.observers = []
 
@@ -60,7 +62,9 @@ class VccClientSessionConfig:
         login_request = requests.post(self.login_url, json=self.login_payload)
 
         self.session_metadata = login_request.json()
-        logging.debug(f"VccClientSessionConfig - Login Result: {self.session_metadata}")
+        logging.debug(
+            f"Five9RestClientSessionConfig - Login Result: {self.session_metadata}"
+        )
 
         if login_request.status_code < 400:
             logging.debug(f"SESSION COOKIES {login_request.cookies}")
@@ -123,10 +127,10 @@ class VccClientSessionConfig:
             observer.update_config(self)
 
 
-class VccClient:
+class Five9RestClient:
     class RESTNamespace:
         def __init__(
-            self, target_module, session_configuration: VccClientSessionConfig
+            self, target_module, session_configuration: Five9RestClientSessionConfig
         ):
             for name, obj in inspect.getmembers(
                 API_METHOD_MODULES[target_module]["module"]
@@ -145,7 +149,7 @@ class VccClient:
 
         logging.info("Initializing VCC_Client")
 
-        self.session_configuration = VccClientSessionConfig(
+        self.session_configuration = Five9RestClientSessionConfig(
             username=kwargs["username"],
             password=kwargs["password"],
         )
@@ -183,9 +187,16 @@ class VccClient:
             current_supervisor_login_state = self.supervisor_login_state
 
         if current_supervisor_login_state == "SELECT_STATION":
-            session = self.supervisor.SupervisorSessionStart.invoke(
-                self.stationId, self.stationType, self.stationState
-            )
+            try:
+                session = self.supervisor.SupervisorSessionStart.invoke(
+                    self.stationId, self.stationType, self.stationState
+                )
+            except Five9DuplicateLoginError:
+                logging.info(
+                    "Supervisor already logged in, logging out, please try again."
+                )
+                self.supervisor.LogOut.invoke()
+
             logging.debug(f"SUPERVISOR SESSION STARTED Result: {session.__dict__}")
 
     def initialize_agent_session(self, auto_accept_notice=True):
@@ -211,11 +222,11 @@ class VccClient:
 
 class Five9Socket:
     """Class for facilitating Five9 WebSocket connections
-    Requires a VccClient instance and a socket_key.  The socket_key is used to identify the socket for your app and is arbitrary.
+    Requires a Five9RestClient instance and a socket_key.  The socket_key is used to identify the socket for your app and is arbitrary.
     The context parameter must be either "agent" or "supervisor" and is used to determine the context path for the WebSocket URI.
     """
 
-    def __init__(self, client: VccClient, context, socket_key, handlers={}):
+    def __init__(self, client: Five9RestClient, context, socket_key, handlers={}):
         self.client = client
         self.socket_key = socket_key
         self.context_path = CONTEXT_PATHS[f"websocket_{context}"]
@@ -265,7 +276,8 @@ class Five9Socket:
             handled = await handler.handle(event)
 
     async def listen_for_disconnect(self):
-        # Use a thread to listen for the disconnect command
+        # Get the event loop for the current thread,
+        # and schedule the await_disconnect coroutine to run in the background
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._await_disconnect, loop)
 
@@ -283,9 +295,7 @@ class Five9Socket:
         }
 
         async with websockets.connect(self.uri, extra_headers=headers) as websocket:
-            self.websocket = (
-                websocket  # Assign the websocket instance to self.websocket
-            )
+            self.websocket = websocket
             # Run sending pings and message handler concurrently
             await asyncio.gather(
                 self.send_ping(websocket),

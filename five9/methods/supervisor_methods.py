@@ -11,8 +11,6 @@ class MaintenanceNoticesGet(SupervisorRestMethod):
 
     """
 
-    method_name = "Supervisor:MaintenanceNoticesGet"
-
     def invoke(self):
         self.method = "GET"
         self.path = f"/supervisors/{self.config.userId}/maintenance_notices"
@@ -26,8 +24,6 @@ class MaintenanceNoticesAccept(SupervisorRestMethod):
 
     """
 
-    method_name = "supervisor:MaintenanceNoticesAccept"
-
     def invoke(self, noticeId):
         self.method = "PUT"
         self.path = f"/supervisors/{self.config.userId}/maintenance_notices/{noticeId}/accept"
@@ -36,7 +32,6 @@ class MaintenanceNoticesAccept(SupervisorRestMethod):
 
 
 class SupervisorLoginState(SupervisorRestMethod):
-    method_name = "Supervisor:SupervisorLoginState"
 
     def invoke(self):
         self.method = "GET"
@@ -56,8 +51,6 @@ class SupervisorSessionStart(SupervisorRestMethod):
     CAN_RUN_WEB_AGENT permission
     """
 
-    method_name = "Supervisor:SupervisorSessionStart"
-
     def invoke(self, stationId="", stationType="EMPTY", stationState="DISCONNECTED"):
         self.method = "PUT"
         self.path = f"/supervisors/{self.config.userId}/session_start"
@@ -75,14 +68,13 @@ class SupervisorSessionStart(SupervisorRestMethod):
             if exception_details.get("five9ExceptionDetail", {}).get("context", {}).get("contextCode", "") == "DUPLICATE_LOGIN": 
                 raise Five9DuplicateLoginError(f"Already Logged In: {self.response.status_code} - {self.response.json()}")
             raise Exception(f"Error: {self.response.status_code} - {self.response.text}")
-        
+
+
 class LogOut(SupervisorRestMethod):
     """Logs out the supervisor.
     PUT /auth/logout
 
     """
-
-    method_name = "Supervisor:LogOut"
 
     def invoke(self):
         self.method = "POST"
@@ -93,3 +85,17 @@ class LogOut(SupervisorRestMethod):
         
         else:
             raise Exception(f"Error: {self.response.status_code} - {self.response.text}")
+
+
+
+class DomainQueues(SupervisorRestMethod):
+    """Returns an array of all queues in the domain.
+    GET /orgs/{orgId}/skills
+
+    """
+
+    def invoke(self):
+        self.method = "GET"
+        self.path = f"/orgs/{self.config.orgId}/skills"
+        super().invoke()
+        return self.response.json()

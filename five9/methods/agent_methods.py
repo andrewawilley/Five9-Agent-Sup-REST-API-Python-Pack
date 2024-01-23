@@ -60,8 +60,6 @@ class AgentSessionStart(AgentRestMethod):
     CAN_RUN_WEB_AGENT permission
     """
 
-    method_name = "Agent:AgentSessionStart"
-
     def invoke(self, stationId="", stationType="EMPTY", stationState="DISCONNECTED"):
         self.method = "PUT"
         self.path = f"/agents/{self.config.userId}/session_start"
@@ -85,8 +83,6 @@ class LogOut(AgentRestMethod):
     PUT /auth/logout
 
     """
-
-    method_name = "Agent:LogOut"
 
     def invoke(self):
         self.method = "POST"

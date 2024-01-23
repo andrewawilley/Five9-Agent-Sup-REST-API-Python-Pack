@@ -65,6 +65,9 @@ class SupervisorRestMethod(FiveNineRestMethod):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    @property
+    def method_name(self):
+        return f"Supervisor:{self.__class__.__name__}" 
 
 class AgentRestMethod(FiveNineRestMethod):
     """Base class for all Five9 Agent REST methods."""
@@ -73,3 +76,8 @@ class AgentRestMethod(FiveNineRestMethod):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    @property
+    def method_name(self):
+        return f"Agent:{self.__class__.__name__}" 
+    

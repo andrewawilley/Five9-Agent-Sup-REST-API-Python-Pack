@@ -1,4 +1,8 @@
+### README Status:
+This Readme is somewhat under construction.  If you identify incorrect or missing information, please submit a pull request or open an issue.
+
 # Overview
+
 The Five9 Agent-Sup REST API Python Pack provides an example interface for interacting with Agent and Supervisor sessions in the Five9 Virtual Contact Center (VCC). It simplifies the process of integrating Five9's REST APIs into your Python applications, enabling you to perform agent and supervisor REST API methods, as well as open websockets for real-time interaction and notifications.
 
 
@@ -22,11 +26,11 @@ By choosing to use this code, you acknowledge and agree to the following:
 
 # Getting Started
 ## Prerequisites
-* Python 3.12 or higher
+* Tested Python 3.12 or higher, though it should work with Python 3.11 as well
 * Five9 Virtual Contact Center (VCC) account with the Agent or Supervisor Role as appropriate for your use case
 
 ## Installation
-Clone the repository to your local machine, create a virtual environment, and install the required packages:
+Clone the repository to your local machine, create a virtual environment, and install using pip.
 
 ### Windows
 ```powershell
@@ -34,6 +38,7 @@ git clone <insert URL from GIT here>
 cd five9-python-pack
 python -m venv venv
 .\venv\Scripts\activate
+pip install .
 ```
 ### Linux/MacOS
 ```bash
@@ -41,13 +46,10 @@ git clone <insert URL from GIT here>
 cd five9-python-pack
 python -m venv venv
 source venv/bin/activate
+pip install .
 ```
 
-Once the virtual environment is activated, install the required packages:
-
-```bash
-pip install -r requirements.txt
-```
+Note, if you need to customize the package, you can install it in editable mode by running `pip install -e .` instead of `pip install .`
 
 # Configuration
 Before you start using the libaray, ensure that the `config.py` file is updated to the correct local if you are connecting to a non-US call center environment.
@@ -147,26 +149,58 @@ supervisor_socket.connect()
 ```
 
 ## Defining a Message Handler
-You can create a dictionary of `SocketEventHandler` objects that will be used to handle incoming message events.  The `handle_message(event)` method will be called when a message of the `eventId` is received.  The `event` argument will be the full message object from the websocket, and you can access the `context` and `payLoad` properties from the event object.
+You can create subclasses objects of `SocketEventHandler` to handle incoming message events.  Pass them in as a list to the `Five9Client` with the `custom_socket_handlers` argument, and they will be used to handle incoming messages.
 
-The socket client accepts a dictionary of `SocketEventHandler` objects that will be used to handle incoming messages.  
+  The `handle_message(event)` method will be called when a message of the `eventId` is received.  The `event` argument will be the full message object from the websocket, and you can access the `context` and `payLoad` properties from the event object.
 
 The complete list of message eventIds and their corresponding message types can be found in the [Five9 Agent and Supervisor REST API documentation](https://webapps.five9.com/assets/files/for_customers/documentation/apis/vcc-agent+supervisor-rest-api-reference-guide.pdf) in the last part of the document.  
 
+In the example below, we create a new class called QueueSatistics to help track changes in the queue data.  We then create a new class called StatsEvent5000Handler that inherits from the `SocketEventHandler` class.  This class will handle the 5000 event, which is the Statistics Update event.  When the event is received, the `handle()` method will be called, and the `event` argument will contain the full event object.  We can then process the event as needed.
 
 ```python
-from five9client.websocket import SocketEventHandler
+from five9_agent_sup_rest.client import Five9RestClient, Five9Socket
+from five9_agent_sup_rest.methods.default_socket_handlers import SocketEventHandler
 
-class MyHandlerForAcdStatsUpdateEventId5000(SocketEventHandler):
-    event_id = "5000"
+class QueueStatistics:
+    def __init__(self, *args, **kwargs):
+        self.queue_id_map = {}
+        self.queue_mapping_info = kwargs.get("queue_mapping_info", None)
+        self.map_queue_ids()
 
-    def handle_message(self, event):
-        logging.info(f"Received message with eventId 5000\n{event['context']['eventReason']}\n{event['payLoad']}")
-        # do logic with the updated ACD stats, etc.
+        self.current_queue_snapshot = {
+            "added": [],
+            "updated": [],  
+            "removed": [],
+        }
 
-# assumes a client instance has already been created
-custom_handlers = [MyHandlerForAcdStatsUpdateEventId5000,]
+    def map_queue_ids(self):
+        for queue in self.queue_mapping_info:
+            self.queue_id_map[queue["id"]] = queue["name"]
 
-supervisor_socket = Five9Socket(client, "supervisor", "demo_script", custom_handlers)
-supervisor_socket.connect()
+    def update_queue_info(self, queue_info):
+        self.previous_queue_snapshot = self.current_queue_snapshot
+        self.current_queue_snapshot = queue_info
+
+class StatsEvent5000Handler(SocketEventHandler):
+    """Handler for event 5000 - Statistics Update"""
+
+    eventId = "5000"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(eventId=self.eventId, *args, **kwargs)
+        if not hasattr(self.client, "queue_statistics"):
+            self.client.queue_statistics = QueueStatistics(
+                queue_mapping_info=self.client.supervisor.DomainQueues.invoke()
+            )
+            logging.info("Queue Statistics Handler Initialized")
+
+    async def handle(self, event):
+        logging.info(
+            f"Stats Handler EVENT: {event['context']['eventId']} - {event['payLoad']}"
+        )
+        for updated_object in event["payLoad"]:
+            if updated_object["dataSource"] == "ACD_STATUS":
+                self.client.queue_statistics.update_queue_info(updated_object["data"])
+
+        return
 ```

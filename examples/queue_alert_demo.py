@@ -1,7 +1,7 @@
 import logging
 
 from five9_agent_sup_rest.client import Five9RestClient, Five9Socket
-from five9_agent_sup_rest.methods.socket_handlers import SocketEventHandler
+from five9_agent_sup_rest.methods.default_socket_handlers import SocketEventHandler
 
 from five9_agent_sup_rest.private.credentials import ACCOUNTS
 
@@ -37,8 +37,7 @@ class StatsEvent5000Handler(SocketEventHandler):
     eventId = "5000"
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+        super().__init__(eventId=self.eventId, *args, **kwargs)
         if not hasattr(self.client, "queue_statistics"):
             self.client.queue_statistics = QueueStatistics(
                 queue_mapping_info=self.client.supervisor.DomainQueues.invoke()
@@ -51,27 +50,26 @@ class StatsEvent5000Handler(SocketEventHandler):
         )
         for updated_object in event["payLoad"]:
             if updated_object["dataSource"] == "ACD_STATUS":
-                self.client.queue_statistics.update_queue_info(updated_object["object"])
+                self.client.queue_statistics.update_queue_info(updated_object["data"])
 
-        self.client.queue_statistics.update_queue_info(event["payLoad"])
         return
 
 
-if __name__ == "__main__":
-    username = ACCOUNTS["default_test_account"]["username"]
-    password = ACCOUNTS["default_test_account"]["password"]
+# if __name__ == "__main__":
+username = ACCOUNTS["default_test_account"]["username"]
+password = ACCOUNTS["default_test_account"]["password"]
 
-    custom_socket_handlers = [StatsEvent5000Handler]
+custom_socket_handlers = [StatsEvent5000Handler]
 
-    client = Five9RestClient(
-        username=username,
-        password=password,
-        supervisor_socket_handlers=custom_socket_handlers,
-    )
-    client.initialize_supervisor_session()
+client = Five9RestClient(
+    username=username,
+    password=password,
+    custom_socket_handlers=custom_socket_handlers,
+)
+client.initialize_supervisor_session()
 
-    # queues = client.supervisor.DomainQueues.invoke()
+# queues = client.supervisor.DomainQueues.invoke()
 
-    client.supervisor_socket.connect()
+client.supervisor_socket.connect()
 
-    client.supervisor.LogOut.invoke()
+client.supervisor.LogOut.invoke()

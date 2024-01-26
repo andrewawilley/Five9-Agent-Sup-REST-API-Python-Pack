@@ -14,7 +14,7 @@ from five9_agent_sup_rest.exceptions import Five9DuplicateLoginError
 from five9_agent_sup_rest.methods.base import SupervisorRestMethod, AgentRestMethod
 from five9_agent_sup_rest.methods import agent_methods, supervisor_methods
 
-from five9_agent_sup_rest.methods import socket_handlers
+from five9_agent_sup_rest.methods import default_socket_handlers
 
 
 API_METHOD_MODULES = {
@@ -139,11 +139,9 @@ class Five9RestClient:
         self.stationId = kwargs.get("stationId", "")
         self.stationType = kwargs.get("stationType", "EMPTY")
         self.stationState = kwargs.get("stationState", "DISCONNECTED")
-        
-        self.supervisor_socket_handlers = kwargs.get("supervisor_socket_handlers", {})
+
+        self.custom_socket_handlers = kwargs.get("custom_socket_handlers", {})
         self.socket_key = kwargs.get("socket_key", "python_pack_socket")
-
-
 
         self.logged_in = False
 
@@ -180,11 +178,13 @@ class Five9RestClient:
                     self.agent.AcceptMaintenanceNotice(notice["id"])
                     logging.info(f"Accepted Maintenance Notice: {notice['id']}")
 
-    def initialize_supervisor_session(self, socket_handlers={}, auto_accept_notice=True):
+    def initialize_supervisor_session(
+        self, socket_handlers={}, auto_accept_notice=True
+    ):
         current_supervisor_login_state = self.supervisor_login_state
-        
+
         self.socket_handlers = socket_handlers
-        
+
         if (
             auto_accept_notice == True
             and current_supervisor_login_state == "ACCEPT_NOTICE"
@@ -253,19 +253,17 @@ class Five9Socket:
 
         self.disconnect_requested = False
 
-        default_handlers = {}
-
-        for name, obj in inspect.getmembers(socket_handlers):
-            if inspect.isclass(obj) and issubclass(obj, socket_handlers.SocketEventHandler):
-                handler = obj(self.client)
-                default_handlers[handler.eventId] = handler
-                logging.debug(f"Default Handler Added: {handler.eventId}")
-            else:
-                logging.debug(f"Skipping {name}")
-
-        self.handlers = default_handlers
-
         logging.info(f"WebSocket URI: {self.uri}")
+
+    def add_socket_handler(self, handler):
+        if inspect.isclass(handler) and issubclass(
+            handler, default_socket_handlers.SocketEventHandler
+        ):
+            handler = handler(client=self.client)
+            self.handlers[handler.eventId] = handler
+            logging.info(f"Handler Added: {handler.eventId}")
+        else:
+            logging.debug(f"Skipping {handler}")
 
     async def send_ping(self, websocket):
         while True:
@@ -297,11 +295,13 @@ class Five9Socket:
                 logging.info(
                     f"No handler found for event {event['context']['eventId']}, creating generic handler.\npayLoad:\n{json.dumps(event['payLoad'])}\n"
                 )
-                handler = socket_handlers.SocketEventHandler(self.client, event["context"]["eventId"])
+                handler = default_socket_handlers.SocketEventHandler(
+                    self.client, event["context"]["eventId"]
+                )
                 self.handlers[event["context"]["eventId"]] = handler
 
             handled = await handler.handle(event)
-            if handled == 'reconnect':
+            if handled == "reconnect":
                 logging.info("Reconnecting socket.")
                 await self.close()
                 self.connect()
@@ -324,6 +324,18 @@ class Five9Socket:
             "Authorization": f"Bearer-{self.client.session_configuration.tokenId}",  # Use the token provided during initialization
             "Cookie": self.client.session_configuration.cookies_header,  # Use the cookies provided during initialization
         }
+
+        self.handlers = {}
+
+        for name, handler in inspect.getmembers(default_socket_handlers):
+            if inspect.isclass(handler) and issubclass(
+                handler, default_socket_handlers.SocketEventHandler
+            ):
+                self.add_socket_handler(handler)
+
+        for handler in self.client.custom_socket_handlers:
+            added = self.add_socket_handler(handler)
+            logging.debug(f"Handler Added: {handler.eventId}")
 
         async with websockets.connect(self.uri, extra_headers=headers) as websocket:
             self.websocket = websocket

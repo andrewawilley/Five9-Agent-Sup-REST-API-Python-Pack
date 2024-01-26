@@ -6,15 +6,15 @@ import logging
 import requests
 import websockets
 
-from five9.config import CONTEXT_PATHS
-from five9.config import SETTINGS
+from five9_agent_sup_rest.config import CONTEXT_PATHS
+from five9_agent_sup_rest.config import SETTINGS
 
-from five9.exceptions import Five9DuplicateLoginError
+from five9_agent_sup_rest.exceptions import Five9DuplicateLoginError
 
-from five9.methods.base import SupervisorRestMethod, AgentRestMethod
-from five9.methods import agent_methods, supervisor_methods
+from five9_agent_sup_rest.methods.base import SupervisorRestMethod, AgentRestMethod
+from five9_agent_sup_rest.methods import agent_methods, supervisor_methods
 
-from five9.methods.socket_handlers import *
+from five9_agent_sup_rest.methods import socket_handlers
 
 
 API_METHOD_MODULES = {
@@ -26,11 +26,6 @@ API_METHOD_MODULES = {
         "module": supervisor_methods,
         "sublass": SupervisorRestMethod,
     },
-}
-
-# Default handlers for socket events from methods.socket_handlers
-DEFAULT_HANDLERS = {
-    "1202": DefaultEventHandler1202(),
 }
 
 
@@ -144,6 +139,11 @@ class Five9RestClient:
         self.stationId = kwargs.get("stationId", "")
         self.stationType = kwargs.get("stationType", "EMPTY")
         self.stationState = kwargs.get("stationState", "DISCONNECTED")
+        
+        self.supervisor_socket_handlers = kwargs.get("supervisor_socket_handlers", {})
+        self.socket_key = kwargs.get("socket_key", "python_pack_socket")
+
+
 
         self.logged_in = False
 
@@ -159,6 +159,9 @@ class Five9RestClient:
         self.supervisor = self.RESTNamespace(
             "supervisor_methods", self.session_configuration
         )
+
+        self.supervisor_socket = Five9Socket(self, "supervisor", self.socket_key)
+        self.agent_socket = Five9Socket(self, "agent", self.socket_key)
 
     def accept_maintenance_notices(self, user_type="supervisor"):
         if user_type == "supervisor":
@@ -177,8 +180,11 @@ class Five9RestClient:
                     self.agent.AcceptMaintenanceNotice(notice["id"])
                     logging.info(f"Accepted Maintenance Notice: {notice['id']}")
 
-    def initialize_supervisor_session(self, auto_accept_notice=True):
+    def initialize_supervisor_session(self, socket_handlers={}, auto_accept_notice=True):
         current_supervisor_login_state = self.supervisor_login_state
+        
+        self.socket_handlers = socket_handlers
+        
         if (
             auto_accept_notice == True
             and current_supervisor_login_state == "ACCEPT_NOTICE"
@@ -237,7 +243,7 @@ class Five9Socket:
     The context parameter must be either "agent" or "supervisor" and is used to determine the context path for the WebSocket URI.
     """
 
-    def __init__(self, client: Five9RestClient, context, socket_key, handlers={}):
+    def __init__(self, client: Five9RestClient, context, socket_key):
         self.client = client
         self.socket_key = socket_key
         self.context_path = CONTEXT_PATHS[f"websocket_{context}"]
@@ -247,7 +253,17 @@ class Five9Socket:
 
         self.disconnect_requested = False
 
-        self.handlers = DEFAULT_HANDLERS | handlers
+        default_handlers = {}
+
+        for name, obj in inspect.getmembers(socket_handlers):
+            if inspect.isclass(obj) and issubclass(obj, socket_handlers.SocketEventHandler):
+                handler = obj(self.client)
+                default_handlers[handler.eventId] = handler
+                logging.debug(f"Default Handler Added: {handler.eventId}")
+            else:
+                logging.debug(f"Skipping {name}")
+
+        self.handlers = default_handlers
 
         logging.info(f"WebSocket URI: {self.uri}")
 
@@ -281,10 +297,14 @@ class Five9Socket:
                 logging.info(
                     f"No handler found for event {event['context']['eventId']}, creating generic handler.\npayLoad:\n{json.dumps(event['payLoad'])}\n"
                 )
-                handler = SocketEventHandler(self.client, event["context"]["eventId"])
+                handler = socket_handlers.SocketEventHandler(self.client, event["context"]["eventId"])
                 self.handlers[event["context"]["eventId"]] = handler
 
             handled = await handler.handle(event)
+            if handled == 'reconnect':
+                logging.info("Reconnecting socket.")
+                await self.close()
+                self.connect()
 
     async def listen_for_disconnect(self):
         # Get the event loop for the current thread,

@@ -1,8 +1,8 @@
 import logging
 
 from .base import SupervisorRestMethod
-from five9.config import CONTEXT_PATHS
-from five9.exceptions import Five9DuplicateLoginError
+from five9_agent_sup_rest.config import CONTEXT_PATHS
+from five9_agent_sup_rest.exceptions import Five9DuplicateLoginError
 
 
 class MaintenanceNoticesGet(SupervisorRestMethod):
@@ -92,5 +92,18 @@ class DomainQueues(SupervisorRestMethod):
     def invoke(self):
         self.method = "GET"
         self.path = f"/orgs/{self.config.orgId}/skills"
+        super().invoke()
+        return self.response.json()
+
+class MigrateToMaintenanceHost:
+    """Migrates the supervisor to the maintenance host.
+    POST /supervisors/{supervisorId}/migrate
+
+    """
+
+    def invoke(self):
+        self.method = "POST"
+        self.path = f"/{self.config.userId}/migrate"
+        self.qstring_params = {"migrateToMaintenanceHost": "true"}
         super().invoke()
         return self.response.json()

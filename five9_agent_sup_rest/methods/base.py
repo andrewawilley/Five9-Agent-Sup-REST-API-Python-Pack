@@ -3,7 +3,7 @@ from typing import Dict, Any
 
 import requests
 
-from five9.config import CONTEXT_PATHS
+from five9_agent_sup_rest.config import CONTEXT_PATHS
 
 
 class FiveNineRestMethod:

@@ -19,6 +19,7 @@ By choosing to use this code, you acknowledge and agree to the following:
 * Supervisor Operations: Manage supervisor sessions and perform tasks such as starting sessions, accepting maintenance notices, and logging out.
 * WebSocket Support: Establish WebSocket connections for real-time interaction and notifications, with built-in event handling and message processing.
 
+
 # Getting Started
 ## Prerequisites
 * Python 3.12 or higher
@@ -64,6 +65,7 @@ ACCOUNTS = {
 }
 ```
 This will allow you to run the tests without having to enter your credentials every time.  **DO NOT** commit this file to the repository, and consider using a different method of storing credentials for production use such as environment variables.
+
 
 # REST Client Usage
 ## Initializing the Client
@@ -156,14 +158,14 @@ The complete list of message eventIds and their corresponding message types can 
 from five9client.websocket import SocketEventHandler
 
 class MyHandlerForAcdStatsUpdateEventId5000(SocketEventHandler):
+    event_id = "5000"
+
     def handle_message(self, event):
         logging.info(f"Received message with eventId 5000\n{event['context']['eventReason']}\n{event['payLoad']}")
         # do logic with the updated ACD stats, etc.
 
 # assumes a client instance has already been created
-custom_handlers = {
-    "5000": MyHandlerForAcdStatsUpdateEventId5000("5000", client)
-}
+custom_handlers = [MyHandlerForAcdStatsUpdateEventId5000,]
 
 supervisor_socket = Five9Socket(client, "supervisor", "demo_script", custom_handlers)
 supervisor_socket.connect()

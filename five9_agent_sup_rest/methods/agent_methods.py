@@ -1,8 +1,8 @@
 import logging
 
 from .base import AgentRestMethod
-from five9.config import CONTEXT_PATHS
-from five9.exceptions import Five9DuplicateLoginError
+from five9_agent_sup_rest.config import CONTEXT_PATHS
+from five9_agent_sup_rest.exceptions import Five9DuplicateLoginError
 
 #####################################################################
 # Agent and Agent REST API Session Start Methods

@@ -5,14 +5,14 @@ import asyncio
 import unittest
 from unittest.mock import patch, MagicMock
 
-from five9.client import Five9RestClient, Five9Socket
+from five9_agent_sup_rest.client import Five9RestClient, Five9Socket
 
-from five9.private.credentials import ACCOUNTS
+from five9_agent_sup_rest.private.credentials import ACCOUNTS
 
 
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 

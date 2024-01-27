@@ -52,10 +52,10 @@ pip install .
 Note, if you need to customize the package, you can install it in editable mode by running `pip install -e .` instead of `pip install .`
 
 # Configuration
-Before you start using the libaray, ensure that the `config.py` file is updated to the correct local if you are connecting to a non-US call center environment.
+Update the `config.py` file for non-US call center connections.
 
 ## Credentials
-For testing purposes, you can create a credentials.py file in the private folder with the following content:
+For testing, create a `credentials.py` file in the private folder with your credentials. Never commit this file to the repository. Use environment variables for production.
 
 ```python
 # credentials.py
@@ -66,18 +66,17 @@ ACCOUNTS = {
     }
 }
 ```
-This will allow you to run the tests without having to enter your credentials every time.  **DO NOT** commit this file to the repository, and consider using a different method of storing credentials for production use such as environment variables.
 
 
 # REST Client Usage
 ## Initializing the Client
-To initialize the client, first import the `Five9Client` class from the `five9.client` module.  Then, you can create a new instance of the client by passing in the account credentials:
+Import `Five9RestClient` from five9_agent_suprest.client, create a client instance with credentials, and start a session:
 
 ```python
-from five9.client import Five9RestClient
+from five9_agent_suprest.client import Five9RestClient
 
 # if you have a credentials.py file in the private folder, you can import the credentials from there
-from five9.private.credentials import ACCOUNTS
+from five9_agent_suprest.private.credentials import ACCOUNTS
 
 username = ACCOUNTS["default_test_account"]["username"]
 password = ACCOUNTS["default_test_account"]["password"]
@@ -86,24 +85,20 @@ client = Five9RestClient(username='your_username', password='your_password')
 ```
 
 ### Starting an Agent or Supervisor Session
-Once the client has been instantiated, you can start an agent or supervisor session by calling the `initialize_agent_session()` or `initialize_supervisor_session()` methods, respectively.  These methods will return a boolean value indicating whether the session was successfully started.
+Use `initialize_agent_session()` or `initialize_supervisor_session()` to start sessions on the client.
 
 ```python
 client.initialize_supervisor_session()
 ```
 
 ## Implementing Supervisor and Agent REST Methods
-A number of the documented REST methods are implemented in the `supervisor` and `agent` modules, respectively.  To implement additional methods, you can create a new instance of the supervisor or agent class in the `methods.agent_methods` or `methods.supervisor_methods` modules, respectively.
+A number of the documented REST methods are implemented in the `supervisor` and `agent` modules, respectively.  Add additional methods from the developers guide by creating a class in `methods.agent_methods` or `methods.supervisor_methods` as a subclass of the `methods.base.AgentRestMethod` or `methods.base.SupervisorRestMethod`. Implement the invoke() method. 
 
-There is a #TODO item to implement a method on the client that will allow you to pass in a list of method names to implement, but for now you must import the methods directly in the respective modules.
-
-To implement a method documented in the developers guide, you can create a new class that inherits from the `AgentRestMethod` or `SupervisorRestMethod` class, depending on the type of method you are implementing.  The class must implement the `method_name` property, which should be the name of the method as documented in the developers guide.  
-
-For example, follow this pattern
-* Name the class after the method name, but with the first letter capitalized and the underscores removed.  For example, the `GET /orgs/{orgId}/skills` method would be named `DomainQueues`.
-* The class must inherit from the `AgentRestMethod` or `SupervisorRestMethod` class, depending on the type of method you are implementing.
+### Example - Implementing the DomainQueues Method
+* This will be a subclass of the `SupervisorRestMethod` class
+* Name the class after the method name or functionality, but with the first letter capitalized and the underscores removed.  For example, the `GET /orgs/{orgId}/skills` method could be named `DomainQueues`.
 * Add a docstring to the class that contains the method description from the developers guide, as well as the method path.  This is not required, but it is helpful for documentation purposes.
-* Implement the `invoke()` method.  This method should set the `method` and `path` properties, and then call the `super().invoke()` method.  This will invoke the method and store the response in the `response` property.  The `invoke()` method should, at a minimum, return the `response` object, but for many of the REST methods, you will want to pass the json value of the response.
+* Implement the `invoke()` method.  This method should set the http `method` and `path` properties, and then call the `super().invoke()` method.  This will invoke the method and store the response in the `response` property.  The `invoke()` method should, at a minimum, return the `response` object, but for many of the REST methods, you will want to pass the json value of the response.
     
 ```python
 from five9client.methods.base import SupervisorRestMethod
@@ -125,35 +120,32 @@ class DomainQueues(SupervisorRestMethod):
 ```
 
 ## Invoking REST Methods
-Once a session has been started, you can invoke REST methods by calling the `invoke()` method on the client method class instance.  Pass in the correct payload for the method you are calling, and the method will be invoked.  Though this can vary depending on the method, most methods will return a requests.response object.  You can access the response data by calling the `json()` method on the response object.
-
+Once a session has been started, you can invoke REST methods by calling the `invoke()` method on the client method class instance.  Pass in the correct payload for the method you are calling as required by the Five9 API documentation.  
 
 # Supervisor and Agent WebSocket Usage
 ## Starting the WebSocket
-To start the WebSocket, you must first import the `Five9WebSocket` class from the `websocket` module.  Then, you can create a new instance of the WebSocket by passing in the client instance:
+The Five9RestClient builds a `supervisor_socket` and `agent_socket` that can be used to connect to the Five9 WebSocket server.   When creating the client, you can pass in a list of custom socket handlers that will be used to handle incoming messages.  The handlers should be subclasses of the `SocketEventHandler` class.  See the section on Defining a Message Handler for more information.
 
-The socket will automatically connect to the Five9 WebSocket server.  It requires three arguments:
-* `client`: The client instance to use for authentication and session management.
-* `type`: The type of session to start.  Valid values are `agent` and `supervisor`.
-* `socket_key`: This is an **arbitrary** string that is used to identify the socket.  Only one socket can be started per socket key.  If you attempt to start a socket with a key that is already in use, it will fail to connect.
-
+Use the `connect()` method to connect to the WebSocket server.  The `connect()` method will start an asyncio event loop and run until the connection is closed or the user presses `Enter`.
 
 ```python
-from five9client.websocket import Five9WebSocket
 
-client = Five9RestClient(username=username, password=password)
+client = Five9RestClient(
+    username=username,
+    password=password,
+    socket_app_key="queue_alert_demo", #optional, will default to "python_pack_socket"
+)
 client.initialize_supervisor_session()
 
-supervisor_socket = Five9Socket(client, "supervisor", "demo_script")
-supervisor_socket.connect()
+# queues = client.supervisor.DomainQueues.invoke()
+
+client.supervisor_socket.connect()
 ```
 
 ## Defining a Message Handler
-You can create subclasses objects of `SocketEventHandler` to handle incoming message events.  Pass them in as a list to the `Five9Client` with the `custom_socket_handlers` argument, and they will be used to handle incoming messages.
+The provided `default_socket_handlers.py` script includes a base `SocketEventHandler` class. Any custom handler you create should inherit from this class. This base class requires the implementation of an async def handle(self, event) method, which is called when an event matching the handler's eventId is received.
 
-  The `handle_message(event)` method will be called when a message of the `eventId` is received.  The `event` argument will be the full message object from the websocket, and you can access the `context` and `payLoad` properties from the event object.
-
-The complete list of message eventIds and their corresponding message types can be found in the [Five9 Agent and Supervisor REST API documentation](https://webapps.five9.com/assets/files/for_customers/documentation/apis/vcc-agent+supervisor-rest-api-reference-guide.pdf) in the last part of the document.  
+The complete list of message eventIds and their corresponding message types can be found in the [Five9 Agent and Supervisor REST API documentation](https://webapps.five9_agent_suprest.com/assets/files/for_customers/documentation/apis/vcc-agent+supervisor-rest-api-reference-guide.pdf) in the last part of the document.  
 
 In the example below, we create a new class called QueueSatistics to help track changes in the queue data.  We then create a new class called StatsEvent5000Handler that inherits from the `SocketEventHandler` class.  This class will handle the 5000 event, which is the Statistics Update event.  When the event is received, the `handle()` method will be called, and the `event` argument will contain the full event object.  We can then process the event as needed.
 
@@ -204,3 +196,24 @@ class StatsEvent5000Handler(SocketEventHandler):
 
         return
 ```
+From here, you can add the handler to the client when you create it, or you can add it later using the `add_socket_handler()` method.
+
+```python
+custom_socket_handlers = [StatsEvent5000Handler,]
+
+client = Five9RestClient(
+    username=username,
+    password=password,
+    socket_app_key="queue_alert_demo", #optional, will default to "python_pack_socket"
+    custom_socket_handlers=custom_socket_handlers
+)
+client.initialize_supervisor_session()
+
+# queues = client.supervisor.DomainQueues.invoke()
+
+client.supervisor_socket.connect()
+```
+
+
+
+```python

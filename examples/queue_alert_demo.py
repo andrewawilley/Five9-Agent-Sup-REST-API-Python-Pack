@@ -59,12 +59,13 @@ class StatsEvent5000Handler(SocketEventHandler):
 username = ACCOUNTS["default_test_account"]["username"]
 password = ACCOUNTS["default_test_account"]["password"]
 
-custom_socket_handlers = [StatsEvent5000Handler]
+custom_socket_handlers = [StatsEvent5000Handler,]
 
 client = Five9RestClient(
     username=username,
     password=password,
-    custom_socket_handlers=custom_socket_handlers,
+    socket_app_key="queue_alert_demo", #optional, will default to "python_pack_socket"
+    custom_socket_handlers=custom_socket_handlers
 )
 client.initialize_supervisor_session()
 

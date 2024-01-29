@@ -107,3 +107,42 @@ class MigrateToMaintenanceHost:
         self.qstring_params = {"migrateToMaintenanceHost": "true"}
         super().invoke()
         return self.response.json()
+
+
+#### Alerts
+class GetAlerts(SupervisorRestMethod):
+    def invoke(self):
+        self.method = "GET"
+        self.path = "/alerts"
+        super().invoke()
+        return self.response.json()
+    
+class CreateAlert(SupervisorRestMethod):
+    def invoke(self, alert_data):
+        self.method = "POST"
+        self.path = "/alerts"
+        super().invoke(payload=alert_data)
+        return self.response.json()
+    
+class UpdateAlert(SupervisorRestMethod):
+    def invoke(self, alert_id, alert_data):
+        self.method = "PUT"
+        self.path = f"/alerts/{alert_id}"
+        super().invoke(payload=alert_data)
+        return self.response.json()
+
+
+class DeleteAlert(SupervisorRestMethod):
+    def invoke(self, alert_id):
+        self.method = "DELETE"
+        self.path = f"/alerts/{alert_id}"
+        super().invoke()
+        return self.response.json()
+
+
+class GetAlertByID(SupervisorRestMethod):
+    def invoke(self, alert_id):
+        self.method = "GET"
+        self.path = f"/alerts/{alert_id}"
+        super().invoke()
+        return self.response.json()

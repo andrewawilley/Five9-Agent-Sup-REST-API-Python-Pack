@@ -143,6 +143,9 @@ class Five9RestClient:
         self.custom_socket_handlers = kwargs.get("custom_socket_handlers", {})
         self.socket_app_key = kwargs.get("socket_app_key", "python_pack_socket")
 
+        custom_supervisor_methods = kwargs.get("custom_supervisor_methods", [])
+        custom_agent_methods = kwargs.get("custom_agent_methods", [])
+
         self.logged_in = False
 
         logging.info("Initializing VCC_Client")
@@ -157,6 +160,22 @@ class Five9RestClient:
         self.supervisor = self.RESTNamespace(
             "supervisor_methods", self.session_configuration
         )
+
+        for method in custom_supervisor_methods:
+            if inspect.isclass(method) and issubclass(
+                method, SupervisorRestMethod
+            ):
+                setattr(self.supervisor, method.__name__, method(self.session_configuration))
+                logging.info(f"Custom Supervisor Method Added: {method.__name__}")
+
+        for method in custom_agent_methods:
+            if inspect.isclass(method) and issubclass(
+                method, AgentRestMethod
+            ):
+                setattr(self.agent, method.__name__, method(self.session_configuration))
+                logging.info(f"Custom Agent Method Added: {method.__name__}")
+
+
 
         self.supervisor_socket = Five9Socket(self, "supervisor", self.socket_app_key)
         self.agent_socket = Five9Socket(self, "agent", self.socket_app_key)
@@ -246,10 +265,9 @@ class Five9Socket:
     def __init__(self, client: Five9RestClient, context, socket_app_key):
         self.client = client
         self.socket_app_key = socket_app_key
-        self.context_path = CONTEXT_PATHS[f"websocket_{context}"]
-        logging.info(f"Context path: {self.context_path}")
+        self.context_path = CONTEXT_PATHS[f"websocket_{context}"]        
         self.uri = f"wss://{client.session_configuration.host}:{client.session_configuration.port}{self.context_path}"
-        self.uri = self.uri.format(socket_app_key=socket_app_key)
+        self.uri = self.uri.format(socket_app_key=self.socket_app_key)
 
         self.disconnect_requested = False
 

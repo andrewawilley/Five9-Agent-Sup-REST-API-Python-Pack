@@ -51,26 +51,25 @@ class StatsEvent5000Handler(SocketEventHandler):
         for updated_object in event["payLoad"]:
             if updated_object["dataSource"] == "ACD_STATUS":
                 self.client.queue_statistics.update_queue_info(updated_object["data"])
-
         return
 
 
-# if __name__ == "__main__":
-username = ACCOUNTS["default_test_account"]["username"]
-password = ACCOUNTS["default_test_account"]["password"]
+if __name__ == "__main__":
+    username = ACCOUNTS["default_test_account"]["username"]
+    password = ACCOUNTS["default_test_account"]["password"]
 
-custom_socket_handlers = [StatsEvent5000Handler,]
+    custom_socket_handlers = [StatsEvent5000Handler,]
 
-client = Five9RestClient(
-    username=username,
-    password=password,
-    socket_app_key="queue_alert_demo", #optional, will default to "python_pack_socket"
-    custom_socket_handlers=custom_socket_handlers
-)
-client.initialize_supervisor_session()
+    client = Five9RestClient(
+        username=username,
+        password=password,
+        socket_app_key="queue_alert_demo", #optional, will default to "python_pack_socket"
+        custom_socket_handlers=custom_socket_handlers
+    )
+    client.initialize_supervisor_session()
 
-# queues = client.supervisor.DomainQueues.invoke()
+    # the socket will remain connected until either the user hits "Enter" or
+    # there is an error in the socket connection that can't be recovered from
 
-client.supervisor_socket.connect()
-
-client.supervisor.LogOut.invoke()
+    client.supervisor_socket.connect()
+    client.supervisor.LogOut.invoke()

@@ -19,9 +19,8 @@ By choosing to use this code, you acknowledge and agree to the following:
 
 # Features
 * Session Management: Handle login sessions, manage session metadata, and ensure proper authentication for API calls.
-* Agent Operations: Perform actions related to Five9 agents, including session management and handling maintenance notices.
-* Supervisor Operations: Manage supervisor sessions and perform tasks such as starting sessions, accepting maintenance notices, and logging out.
-* WebSocket Support: Establish WebSocket connections for real-time interaction and notifications, with built-in event handling and message processing.
+* Agent Operations and Supervisor Operations: Implement documented REST methods and perform your custom business logic with the response data.
+* WebSocket Support: Establish WebSocket connections for real-time interaction and events with event handling and message processing.
 
 
 # Getting Started
@@ -119,8 +118,24 @@ class DomainQueues(SupervisorRestMethod):
 
 ```
 
+You may pass in an array of `custom_supervisor_methods` or `custom_agent_methods` when creating the client to add your custom methods to the client.  For example:
+
+```python
+custom_supervisor_methods = [DomainQueues,]
+
+client = Five9RestClient(
+    username='your_username',
+    password='your_password',
+    custom_supervisor_methods=custom_supervisor_methods
+)
+```
+
+If you feel a method you have created would be useful to others, please submit a pull request to add it to the package in the `methods` folder.
+
 ## Invoking REST Methods
 Once a session has been started, you can invoke REST methods by calling the `invoke()` method on the client method class instance.  Pass in the correct payload for the method you are calling as required by the Five9 API documentation.  
+
+
 
 # Supervisor and Agent WebSocket Usage
 ## Starting the WebSocket

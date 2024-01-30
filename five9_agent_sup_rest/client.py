@@ -161,39 +161,34 @@ class Five9RestClient:
         )
 
         for method in custom_supervisor_methods:
-            if inspect.isclass(method) and issubclass(
-                method, SupervisorRestMethod
-            ):
-                setattr(self.supervisor, method.__name__, method(self.session_configuration))
+            if inspect.isclass(method) and issubclass(method, SupervisorRestMethod):
+                setattr(
+                    self.supervisor, method.__name__, method(self.session_configuration)
+                )
                 logging.info(f"Custom Supervisor Method Added: {method.__name__}")
 
         for method in custom_agent_methods:
-            if inspect.isclass(method) and issubclass(
-                method, AgentRestMethod
-            ):
+            if inspect.isclass(method) and issubclass(method, AgentRestMethod):
                 setattr(self.agent, method.__name__, method(self.session_configuration))
                 logging.info(f"Custom Agent Method Added: {method.__name__}")
-
-        self.supervisor_socket = Five9Socket(self, "supervisor", self.socket_app_key)
-        self.agent_socket = Five9Socket(self, "agent", self.socket_app_key)
 
         self.extensions = {}
 
     def accept_maintenance_notices(self, user_type="supervisor"):
         if user_type == "supervisor":
-            logging.info(f"Accepting Maintenance Notice for Supervisor: {self.userId}")
-            notices = self.supervisor.MaintenanceNotices_Get.invoke()
+            logging.info(f"Accepting Maintenance Notice for Supervisor: {self.session_configuration.userId}")
+            notices = self.supervisor.MaintenanceNoticesGet.invoke()
             for notice in notices:
                 if notice["accepted"] == False:
-                    self.supervisor.AcceptMaintenanceNotice(notice["id"])
+                    self.supervisor.MaintenanceNoticeAccept.invoke(notice["id"])
                     logging.info(f"Accepted Maintenance Notice: {notice['id']}")
 
         if user_type == "agent":
-            logging.info(f"Accepting Maintenance Notice for Agent: {self.userId}")
-            notices = self.agent.MaintenanceNotices_Get.invoke()
+            logging.info(f"Accepting Maintenance Notice for Agent: {self.session_configuration.userId}")
+            notices = self.agent.MaintenanceNoticesGet.invoke()
             for notice in notices:
                 if notice["accepted"] == False:
-                    self.agent.AcceptMaintenanceNotice(notice["id"])
+                    self.agent.MaintenanceNoticeAccept.invoke(notice["id"])
                     logging.info(f"Accepted Maintenance Notice: {notice['id']}")
 
     def initialize_supervisor_session(
@@ -202,15 +197,19 @@ class Five9RestClient:
         current_supervisor_login_state = self.supervisor_login_state
 
         self.socket_handlers = socket_handlers
-
-        if (
-            auto_accept_notice == True
-            and current_supervisor_login_state == "ACCEPT_NOTICE"
-        ):
+        
+        if auto_accept_notice == True:
             self.accept_maintenance_notices(user_type="supervisor")
-            current_supervisor_login_state = self.supervisor_login_state
 
-        if current_supervisor_login_state == "SELECT_STATION":
+        current_supervisor_login_state = self.supervisor_login_state
+
+        if current_supervisor_login_state == "WORKING":
+            self.supervisor_socket = Five9Socket(
+                self, "supervisor", self.socket_app_key
+            )
+            return True
+        
+        if current_supervisor_login_state == "SELECT_STATION" :
             try:
                 session = self.supervisor.SupervisorSessionStart.invoke(
                     self.stationId, self.stationType, self.stationState
@@ -223,13 +222,23 @@ class Five9RestClient:
                 return False
 
             logging.debug(f"SUPERVISOR SESSION STARTED Result: {session.__dict__}")
+            self.supervisor_socket = Five9Socket(
+                self, "supervisor", self.socket_app_key
+            )
             return True
 
     def initialize_agent_session(self, auto_accept_notice=True):
         current_agent_login_state = self.agent_login_state
-        if auto_accept_notice == True and current_agent_login_state == "ACCEPT_NOTICE":
+        if auto_accept_notice == True:
             self.accept_maintenance_notices(user_type="agent")
-            current_agent_login_state = self.agent_login_state
+            
+        current_agent_login_state = self.agent_login_state
+
+        if current_agent_login_state == "WORKING":
+            self.agent_socket = Five9Socket(
+                self, "agent", self.socket_app_key
+            )
+            return True
 
         if current_agent_login_state == "SELECT_STATION":
             try:
@@ -244,6 +253,8 @@ class Five9RestClient:
                 return False
 
             logging.debug(f"AGENT SESSION STARTED Result: {session.__dict__}")
+
+            self.agent_socket = Five9Socket(self, "agent", self.socket_app_key)
             return True
 
     @property
@@ -264,7 +275,7 @@ class Five9Socket:
     def __init__(self, client: Five9RestClient, context, socket_app_key):
         self.client = client
         self.socket_app_key = socket_app_key
-        self.context_path = CONTEXT_PATHS[f"websocket_{context}"]        
+        self.context_path = CONTEXT_PATHS[f"websocket_{context}"]
         self.uri = f"wss://{client.session_configuration.host}:{client.session_configuration.port}{self.context_path}"
         self.uri = self.uri.format(socket_app_key=self.socket_app_key)
 
@@ -274,18 +285,18 @@ class Five9Socket:
         logging.debug(f"WebSocket URI: {self.uri}")
 
     def add_socket_handler(self, handler):
-        if inspect.isclass(handler) and issubclass(
-            handler, default_socket_handlers.SocketEventHandler
-        ) and hasattr(handler, "eventId"):
+        if (
+            inspect.isclass(handler)
+            and issubclass(handler, default_socket_handlers.SocketEventHandler)
+            and hasattr(handler, "eventId")
+        ):
             handler = handler(client=self.client)
             self.handlers[handler.eventId] = handler
             logging.debug(f"Handler Added: {handler.eventId}")
 
-
-
         else:
             logging.debug(f"Skipping {handler}")
-    
+
     async def send_ping(self, websocket):
         while not self.disconnect_requested:
             try:
@@ -297,7 +308,9 @@ class Five9Socket:
                 event_task = asyncio.create_task(self.disconnect_event.wait())
 
                 # Wait for either the sleep task to complete or the event task to be set
-                done, pending = await asyncio.wait([sleep_task, event_task], return_when=asyncio.FIRST_COMPLETED)
+                done, pending = await asyncio.wait(
+                    [sleep_task, event_task], return_when=asyncio.FIRST_COMPLETED
+                )
 
                 # Cancel any pending tasks to avoid them running in the background
                 for task in pending:
@@ -310,7 +323,6 @@ class Five9Socket:
             except websockets.ConnectionClosed:
                 logging.info("Connection closed, stopping ping.")
                 break
-
 
     async def handle_messages(self, websocket):
         async for message in websocket:

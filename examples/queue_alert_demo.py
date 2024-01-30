@@ -6,7 +6,7 @@ from five9_agent_sup_rest.methods.default_socket_handlers import SocketEventHand
 from five9_agent_sup_rest.private.credentials import ACCOUNTS
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 

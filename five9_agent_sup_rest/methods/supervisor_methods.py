@@ -18,7 +18,7 @@ class MaintenanceNoticesGet(SupervisorRestMethod):
         return self.response.json()
 
 
-class MaintenanceNoticesAccept(SupervisorRestMethod):
+class MaintenanceNoticeAccept(SupervisorRestMethod):
     """ Returns an array of maintenance notices.
     PUT /supervisors/{supervisorId}/maintenance_notices/{noticeId}/accept
 

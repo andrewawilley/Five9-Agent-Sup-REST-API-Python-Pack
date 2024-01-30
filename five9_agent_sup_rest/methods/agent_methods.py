@@ -15,8 +15,6 @@ class MaintenanceNoticesGet(AgentRestMethod):
 
     """
 
-    method_name = "Agent:MaintenanceNoticesGet"
-
     def invoke(self):
         self.method = "GET"
         self.path = f"/agents/{self.config.userId}/maintenance_notices"
@@ -24,14 +22,11 @@ class MaintenanceNoticesGet(AgentRestMethod):
         return self.response.json()
 
 
-class MaintenanceNoticesAccept(AgentRestMethod):
+class MaintenanceNoticeAccept(AgentRestMethod):
     """ Returns an array of maintenance notices.
     PUT /agents/{agentId}/maintenance_notices/{noticeId}/accept
 
     """
-
-    method_name = "agent:MaintenanceNoticesAccept"
-
     def invoke(self, noticeId):
         self.method = "PUT"
         self.path = f"/agents/{self.config.userId}/maintenance_notices/{noticeId}/accept"

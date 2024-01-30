@@ -156,7 +156,6 @@ class Five9RestClient:
         )
 
         self.agent = self.RESTNamespace("agent_methods", self.session_configuration)
-
         self.supervisor = self.RESTNamespace(
             "supervisor_methods", self.session_configuration
         )
@@ -175,10 +174,10 @@ class Five9RestClient:
                 setattr(self.agent, method.__name__, method(self.session_configuration))
                 logging.info(f"Custom Agent Method Added: {method.__name__}")
 
-
-
         self.supervisor_socket = Five9Socket(self, "supervisor", self.socket_app_key)
         self.agent_socket = Five9Socket(self, "agent", self.socket_app_key)
+
+        self.extensions = {}
 
     def accept_maintenance_notices(self, user_type="supervisor"):
         if user_type == "supervisor":
@@ -269,9 +268,10 @@ class Five9Socket:
         self.uri = f"wss://{client.session_configuration.host}:{client.session_configuration.port}{self.context_path}"
         self.uri = self.uri.format(socket_app_key=self.socket_app_key)
 
+        self.disconnect_event = asyncio.Event()
         self.disconnect_requested = False
 
-        logging.info(f"WebSocket URI: {self.uri}")
+        logging.debug(f"WebSocket URI: {self.uri}")
 
     def add_socket_handler(self, handler):
         if inspect.isclass(handler) and issubclass(
@@ -279,23 +279,39 @@ class Five9Socket:
         ):
             handler = handler(client=self.client)
             self.handlers[handler.eventId] = handler
-            logging.info(f"Handler Added: {handler.eventId}")
+            logging.debug(f"Handler Added: {handler.eventId}")
+
+            if handler.eventId is None:
+                logging.warning(f"Handler {handler} has no eventId.")
+
         else:
             logging.debug(f"Skipping {handler}")
-
+    
     async def send_ping(self, websocket):
-        while True:
-            if self.disconnect_requested:
-                logging.info("Disconnect requested, stopping ping.")
-                break
+        while not self.disconnect_requested:
             try:
                 await websocket.send("ping")
                 logging.debug("Ping sent")
-                await asyncio.sleep(15)  # Send a ping every 15 seconds
+
+                # Create tasks from the coroutines
+                sleep_task = asyncio.create_task(asyncio.sleep(15))
+                event_task = asyncio.create_task(self.disconnect_event.wait())
+
+                # Wait for either the sleep task to complete or the event task to be set
+                done, pending = await asyncio.wait([sleep_task, event_task], return_when=asyncio.FIRST_COMPLETED)
+
+                # Cancel any pending tasks to avoid them running in the background
+                for task in pending:
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
 
             except websockets.ConnectionClosed:
                 logging.info("Connection closed, stopping ping.")
                 break
+
 
     async def handle_messages(self, websocket):
         async for message in websocket:
@@ -333,8 +349,8 @@ class Five9Socket:
     def _await_disconnect(self, loop):
         input("\nPress Enter to disconnect...\n")
         self.disconnect_requested = True
+        self.disconnect_event.set()  # Set the event to wake up the send_ping coroutine
         logging.info("Disconnect command received.")
-        # Use the passed event loop to schedule the close coroutine
         asyncio.run_coroutine_threadsafe(self.close(), loop)
 
     async def _connect(self):

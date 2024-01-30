@@ -175,10 +175,10 @@ class Five9RestClient:
                 setattr(self.agent, method.__name__, method(self.session_configuration))
                 logging.info(f"Custom Agent Method Added: {method.__name__}")
 
-
-
         self.supervisor_socket = Five9Socket(self, "supervisor", self.socket_app_key)
         self.agent_socket = Five9Socket(self, "agent", self.socket_app_key)
+
+        self.extensions = {}
 
     def accept_maintenance_notices(self, user_type="supervisor"):
         if user_type == "supervisor":

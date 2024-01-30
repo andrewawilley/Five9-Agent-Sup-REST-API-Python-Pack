@@ -10,6 +10,12 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
+DEFAULT_QUEUE_DATA_INCREMENT_ALERTS = {
+    "callsInQueue": 1,
+    # "callbacksInQueue": 1,
+    # "voicemailsInQueue": 1,
+    # "vivrCallsInQueue": 1
+}
 
 class QueueStatistics:
     def __init__(self, *args, **kwargs):
@@ -20,33 +26,40 @@ class QueueStatistics:
         self.current_queue_snapshot = {}
         self.previous_queue_snapshot = {}
 
-        self.queue_alerts = kwargs.get("queue_alerts", None)
+        self.queue_alerts = kwargs.get("queue_alerts", DEFAULT_QUEUE_DATA_INCREMENT_ALERTS)
 
     def map_queue_ids(self):
         for queue in self.queue_mapping_info:
             self.queue_id_map[queue["id"]] = queue["name"]
 
     def update_queue_info(self, queue_info):
-        self.previous_queue_snapshot = self.current_queue_snapshot
+        logging.debug(f"\nPrevious Snapshot:\n{self.previous_queue_snapshot}\n")
+        logging.debug(f"\nCurrent Snapshot:\n{self.current_queue_snapshot}\n")
         for queue in queue_info:
-            self.current_queue_snapshot[queue["queueId"]] = queue
+            self.current_queue_snapshot[queue["id"]] = queue
         alerts = self.get_alerts_for_changes()
-        
-        self.previous_queue_snapshot = self.current_queue_snapshot
-        self.current_queue_snapshot = queue_info
+        self.previous_queue_snapshot = self.current_queue_snapshot.copy()
 
+        return True, alerts
+        
     def get_alerts_for_changes(self):
-        alerts = []        
+        alerts = []
         for queue_id, queue_info in self.current_queue_snapshot.items():
+            if queue_id == "0":
+                continue
+
             for alert_on, difference_threshold in self.queue_alerts.items():
-                difference = self.current_queue_snapshot[queue_id][alert_on] - self.previous_queue_snapshot[queue_id][alert_on]
-                if difference > difference_threshold:
-                    logging.info(f"Queue Alert: {self.queue_id_map[queue_id]} - {alert_on} - {self.current_queue_snapshot[queue_id][alert_on]}")
+                previous_value = self.previous_queue_snapshot.get(queue_id, {}).get(alert_on, 0)
+                current_value = self.current_queue_snapshot.get(queue_id, {}).get(alert_on, 0)
+                logging.debug(f"Comparing Thresholds: {self.queue_id_map[queue_id]} - {alert_on}: Current [{current_value}] Previous [{previous_value}]")
+                difference = current_value - previous_value                
+                if difference >= difference_threshold:
+                    logging.debug(f"Difference [{difference}] is greater than threshold [{difference_threshold}]")               
                     alerts.append({
                         "queue_name": self.queue_id_map[queue_id],
                         "alert_on": alert_on,
-                        "current_value": self.current_queue_snapshot[queue_id][alert_on],
-                        "previous_value": self.previous_queue_snapshot[queue_id][alert_on],
+                        "current_value": current_value,
+                        "previous_value": previous_value,
                         "difference": difference,
                     })
         return alerts
@@ -54,12 +67,14 @@ class QueueStatistics:
 
 class StatsEventBase(SocketEventHandler):
     def __init__(self, *args, **kwargs):
-        super().__init__(eventId=self.eventId, *args, **kwargs)
-        if not hasattr(self.client, "queue_statistics"):
+        self.eventId = kwargs.get("eventId", None)
+        super().__init__(*args, **kwargs)
+        if self.client.extensions.get("queue_statistics", None) is None:
             self.client.extensions["queue_statistics"] = QueueStatistics(
                 queue_mapping_info=self.client.supervisor.DomainQueues.invoke()
             )
-            logging.info("Queue Statistics Handler Initialized")
+            logging.info("Client extension 'queue_statistics' initialized")
+        logging.debug("Queue Statistics Handler Initialized")
 
 
 class StatsEvent5000Handler(StatsEventBase):
@@ -71,11 +86,12 @@ class StatsEvent5000Handler(StatsEventBase):
         super().__init__(eventId=self.eventId, *args, **kwargs)
 
     async def handle(self, event):
-        logging.info(
+        logging.debug(
             f"Stats Handler EVENT: {event['context']['eventId']} - {event['payLoad']}"
         )
         for updated_object in event["payLoad"]:
             if updated_object["dataSource"] == "ACD_STATUS":
+                logging.debug("Initial Queue Data Snapshot Received")
                 self.client.extensions["queue_statistics"].update_queue_info(
                     updated_object["data"]
                 )
@@ -83,26 +99,28 @@ class StatsEvent5000Handler(StatsEventBase):
 
 
 class StatsEvent5012Handler(StatsEventBase):
-    """Handler for event 5000 - Statistics Update"""
+    """Handler for event 5012 - Statistics Update"""
 
-    eventId = "5000"
+    eventId = "5012"
 
     def __init__(self, *args, **kwargs):
         super().__init__(eventId=self.eventId, *args, **kwargs)
 
     async def handle(self, event):
-        logging.info(
+        logging.debug(
             f"Stats Handler EVENT: {event['context']['eventId']} - {event['payLoad']}"
         )
+
         for updated_object in event["payLoad"]:
             if updated_object["dataSource"] == "ACD_STATUS":
-                alerts = self.client.extensions["queue_statistics"].update_queue_info(
+                logging.debug("QUEUE DATA UPDATE RECEIVED")
+                updated, alerts = self.client.extensions["queue_statistics"].update_queue_info(
                     updated_object["updated"]
                 )
                 # handle any alerts here
                 for alert in alerts:
                     # ring a bell, send an email, etc.
-                    pass
+                    logging.info(f"Queue Alert: {alert}")
 
         return
 

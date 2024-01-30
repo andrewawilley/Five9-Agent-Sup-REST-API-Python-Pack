@@ -276,13 +276,12 @@ class Five9Socket:
     def add_socket_handler(self, handler):
         if inspect.isclass(handler) and issubclass(
             handler, default_socket_handlers.SocketEventHandler
-        ):
+        ) and hasattr(handler, "eventId"):
             handler = handler(client=self.client)
             self.handlers[handler.eventId] = handler
             logging.debug(f"Handler Added: {handler.eventId}")
 
-            if handler.eventId is None:
-                logging.warning(f"Handler {handler} has no eventId.")
+
 
         else:
             logging.debug(f"Skipping {handler}")
@@ -327,7 +326,7 @@ class Five9Socket:
 
             if not handler:
                 logging.info(
-                    f"No handler found for event {event['context']['eventId']}, creating generic handler.\npayLoad:\n{json.dumps(event['payLoad'])}\n"
+                    f"No handler found for event {event['context']['eventId']}, creating generic handler."
                 )
                 handler = default_socket_handlers.SocketEventHandler(
                     self.client, event["context"]["eventId"]
@@ -347,7 +346,7 @@ class Five9Socket:
         await loop.run_in_executor(None, self._await_disconnect, loop)
 
     def _await_disconnect(self, loop):
-        input("\nPress Enter to disconnect...\n")
+        input("\nWebsocket Open, press Enter to disconnect...\n")
         self.disconnect_requested = True
         self.disconnect_event.set()  # Set the event to wake up the send_ping coroutine
         logging.info("Disconnect command received.")
@@ -381,7 +380,10 @@ class Five9Socket:
             )
 
     def connect(self):
-        asyncio.run(self._connect())
+        try:
+            asyncio.run(self._connect())
+        except:
+            logging.exception("Error in WebSocket connection.")
 
     async def close(self):
         if hasattr(self, "websocket") and self.websocket and self.websocket.open:

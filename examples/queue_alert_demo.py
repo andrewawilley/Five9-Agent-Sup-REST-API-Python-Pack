@@ -7,7 +7,7 @@ from five9_agent_sup_rest.private.credentials import ACCOUNTS
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
 DEFAULT_QUEUE_DATA_INCREMENT_ALERTS = {

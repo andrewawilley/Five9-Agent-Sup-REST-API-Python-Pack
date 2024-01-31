@@ -51,20 +51,14 @@ pip install .
 Note, if you need to customize the package, you can install it in editable mode by running `pip install -e .`
 
 # Configuration
-Update the `config.py` file for non-US call center connections.
 
-## Credentials
-For testing, create a `credentials.py` file in the private folder with your credentials. Never commit this file to the repository. Use environment variables for production.
-
-```python
-# credentials.py
-ACCOUNTS = {
-    'default_test_account': {
-        'username': 'anActiveUser@your_call_center',
-        'password': 'supersecretpassword',
-    }
-}
-```
+The client object handles the following arguments:
+* `region`: The region of the Five9 system to connect to.  This is optional, and will default to `US` if not provided.  Valid values are `US`, `CA`, `LDN`, and `FRK`.
+* `username`: The username of the agent or supervisor to log in as.
+* `password`: The password of the agent or supervisor to log in as.
+* `socket_app_key`: The app key to use for the WebSocket connection.  This is optional, and will default to `python_pack_socket` if not provided.  It is arbitrary and simply used to identify the connection in the Five9 system.
+* `custom_supervisor_methods`  and `custom_agent_methods`: An array of custom supervisor methods to add to the client's `supervisor` namespace.  See the section on Implementing Supervisor and Agent REST Methods for more information.
+* `custom_socket_handlers`: An array of custom socket handlers to add to the client's `supervisor_socket` and `agent_socket` namespaces.  See the section on Defining a Message Handler for more information. 
 
 
 # REST Client Usage

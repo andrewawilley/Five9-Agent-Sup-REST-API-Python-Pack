@@ -140,11 +140,12 @@ class Five9RestClient:
         self.stationType = kwargs.get("stationType", "EMPTY")
         self.stationState = kwargs.get("stationState", "DISCONNECTED")
 
-        self.custom_socket_handlers = kwargs.get("custom_socket_handlers", {})
-        self.socket_app_key = kwargs.get("socket_app_key", "python_pack_socket")
 
         custom_supervisor_methods = kwargs.get("custom_supervisor_methods", [])
         custom_agent_methods = kwargs.get("custom_agent_methods", [])
+        
+        self.custom_socket_handlers = kwargs.get("custom_socket_handlers", {})
+        self.socket_app_key = kwargs.get("socket_app_key", "python_pack_socket")
 
         self.logged_in = False
 

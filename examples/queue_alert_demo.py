@@ -1,14 +1,22 @@
+import argparse
+from getpass import getpass
 import logging
+import os
 
-from five9_agent_sup_rest.client import Five9RestClient, Five9Socket
+from five9_agent_sup_rest.client import Five9RestClient
 from five9_agent_sup_rest.methods.default_socket_handlers import SocketEventHandler
 
-from five9_agent_sup_rest.private.credentials import ACCOUNTS
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
+# You can create a directory called "private" and create a file called "credentials.py" in it
+# with a dictionary called "ACCOUNTS" that contains your Five9 account credentials
+# ACCOUNTS = {
+#     'default_test_account': {
+#       'username': 'your_username@your_domain',
+#       'password': 'superSecretPassword',
+#     }
+try:
+    from private.credentials import ACCOUNTS
+except ImportError:
+    ACCOUNTS = {}
 
 DEFAULT_QUEUE_DATA_INCREMENT_ALERTS = {
     "callsInQueue": 1,
@@ -16,6 +24,7 @@ DEFAULT_QUEUE_DATA_INCREMENT_ALERTS = {
     # "voicemailsInQueue": 1,
     # "vivrCallsInQueue": 1
 }
+
 
 class QueueStatistics:
     def __init__(self, *args, **kwargs):
@@ -26,7 +35,9 @@ class QueueStatistics:
         self.current_queue_snapshot = {}
         self.previous_queue_snapshot = {}
 
-        self.queue_alerts = kwargs.get("queue_alerts", DEFAULT_QUEUE_DATA_INCREMENT_ALERTS)
+        self.queue_alerts = kwargs.get(
+            "queue_alerts", DEFAULT_QUEUE_DATA_INCREMENT_ALERTS
+        )
 
     def map_queue_ids(self):
         for queue in self.queue_mapping_info:
@@ -41,7 +52,7 @@ class QueueStatistics:
         self.previous_queue_snapshot = self.current_queue_snapshot.copy()
 
         return True, alerts
-        
+
     def get_alerts_for_changes(self):
         alerts = []
         for queue_id, queue_info in self.current_queue_snapshot.items():
@@ -49,19 +60,29 @@ class QueueStatistics:
                 continue
 
             for alert_on, difference_threshold in self.queue_alerts.items():
-                previous_value = self.previous_queue_snapshot.get(queue_id, {}).get(alert_on, 0)
-                current_value = self.current_queue_snapshot.get(queue_id, {}).get(alert_on, 0)
-                logging.debug(f"Comparing Thresholds: {self.queue_id_map[queue_id]} - {alert_on}: Current [{current_value}] Previous [{previous_value}]")
-                difference = current_value - previous_value                
+                previous_value = self.previous_queue_snapshot.get(queue_id, {}).get(
+                    alert_on, 0
+                )
+                current_value = self.current_queue_snapshot.get(queue_id, {}).get(
+                    alert_on, 0
+                )
+                logging.debug(
+                    f"Comparing Thresholds: {self.queue_id_map[queue_id]} - {alert_on}: Current [{current_value}] Previous [{previous_value}]"
+                )
+                difference = current_value - previous_value
                 if difference >= difference_threshold:
-                    logging.debug(f"Difference [{difference}] is greater than threshold [{difference_threshold}]")               
-                    alerts.append({
-                        "queue_name": self.queue_id_map[queue_id],
-                        "alert_on": alert_on,
-                        "current_value": current_value,
-                        "previous_value": previous_value,
-                        "difference": difference,
-                    })
+                    logging.debug(
+                        f"Difference [{difference}] is greater than threshold [{difference_threshold}]"
+                    )
+                    alerts.append(
+                        {
+                            "queue_name": self.queue_id_map[queue_id],
+                            "alert_on": alert_on,
+                            "current_value": current_value,
+                            "previous_value": previous_value,
+                            "difference": difference,
+                        }
+                    )
         return alerts
 
 
@@ -114,9 +135,9 @@ class StatsEvent5012Handler(StatsEventBase):
         for updated_object in event["payLoad"]:
             if updated_object["dataSource"] == "ACD_STATUS":
                 logging.debug("QUEUE DATA UPDATE RECEIVED")
-                updated, alerts = self.client.extensions["queue_statistics"].update_queue_info(
-                    updated_object["updated"]
-                )
+                updated, alerts = self.client.extensions[
+                    "queue_statistics"
+                ].update_queue_info(updated_object["updated"])
                 # handle any alerts here
                 for alert in alerts:
                     # ring a bell, send an email, etc.
@@ -126,8 +147,63 @@ class StatsEvent5012Handler(StatsEventBase):
 
 
 if __name__ == "__main__":
-    username = ACCOUNTS["default_test_account"]["username"]
-    password = ACCOUNTS["default_test_account"]["password"]
+    """
+    This is an example of using the Five9RestClient to create a client session
+    and opening a Five9 Websocket listener.
+
+    This example uses custom socket handlers to handle the 5000 and 5012 events from the
+    websocket (The initial queue statistics snapshot and the queue statistics update
+    events, respectively). The event handlers use a QueueStatistics class to track the
+    changes in the queues, and which could process alerts if changes exceed a change threshold.
+    """
+    parser = argparse.ArgumentParser(
+        description="Run the Five9RestClient with specified parameters."
+    )
+    parser.add_argument(
+        "-u",
+        "--username",
+        default=os.environ.get("FIVE9_USERNAME", None),
+        help="Username for authentication",
+    )
+    parser.add_argument(
+        "-p",
+        "--password",
+        default=os.environ.get("FIVE9_PASSWORD", None),
+        help="Password for authentication",
+    )
+    parser.add_argument(
+        "-a",
+        "--account-alias",
+        default=None,
+        help="Account alias to use for looking up credentials in ACCOUNTS dictionary",
+    )
+    parser.add_argument(
+        "-s",
+        "--socket-app-key",
+        default="python_pack_socket",
+        help="Socket application key",
+    )
+    parser.add_argument("-r", "--region", default="US", help="US, CA, LDN, FRK")
+    parser.add_argument(
+        "-l", "--logging-level", default="INFO", help="Logging level to use"
+    )
+
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=args.logging_level.upper(),
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+
+    if args.account_alias:
+        account_info = ACCOUNTS.get(args.account_alias)
+        if not account_info:
+            raise ValueError(f"No account found for alias: {args.account_alias}")
+        username = account_info["username"]
+        password = account_info["password"]
+    else:
+        username = args.username or input("Enter username: ")
+        password = args.password or getpass("Enter password: ")
 
     custom_socket_handlers = [
         StatsEvent5000Handler,
@@ -137,13 +213,12 @@ if __name__ == "__main__":
     client = Five9RestClient(
         username=username,
         password=password,
-        socket_app_key="queue_alert_demo",  # optional, will default to "python_pack_socket"
+        socket_app_key=args.socket_app_key,
         custom_socket_handlers=custom_socket_handlers,
+        region=args.region
     )
     client.initialize_supervisor_session()
 
-    # the socket will remain connected until either the user hits "Enter" or
-    # there is an error in the socket connection that can't be recovered from
     client.supervisor_socket.connect()
 
     client.supervisor.LogOut.invoke()

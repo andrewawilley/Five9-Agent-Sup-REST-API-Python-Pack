@@ -44,9 +44,9 @@ class Five9RestClientSessionConfig:
             "appKey": "mypythonapp-supervisor-session",
             "policy": "AttachExisting",
         }
-
+        self.region = kwargs.get("region", "US")
         self.login_url = kwargs.get(
-            "login_url", SETTINGS.get("FIVENINE_VCC_LOGIN_URL", "")
+            "login_url", SETTINGS[self.region].get("FIVENINE_VCC_LOGIN_URL", "")
         )
 
         self.login()
@@ -148,7 +148,7 @@ class Five9RestClient:
 
         self.logged_in = False
 
-        logging.info("Initializing VCC_Client")
+        logging.info(f"Initializing VCC_Client for user: {kwargs["username"]}")
 
         self.session_configuration = Five9RestClientSessionConfig(
             username=kwargs["username"],
@@ -198,9 +198,6 @@ class Five9RestClient:
 
         self.socket_handlers = socket_handlers
         
-        if auto_accept_notice == True:
-            self.accept_maintenance_notices(user_type="supervisor")
-
         current_supervisor_login_state = self.supervisor_login_state
 
         if current_supervisor_login_state == "WORKING":
@@ -208,8 +205,12 @@ class Five9RestClient:
                 self, "supervisor", self.socket_app_key
             )
             return True
-        
-        if current_supervisor_login_state == "SELECT_STATION" :
+
+        if current_supervisor_login_state in ["ACCEPT_NOTICE", "WORKING"]:
+            if auto_accept_notice == True:
+                self.accept_maintenance_notices(user_type="supervisor")
+
+        if current_supervisor_login_state == "SELECT_STATION":
             try:
                 session = self.supervisor.SupervisorSessionStart.invoke(
                     self.stationId, self.stationType, self.stationState
@@ -228,11 +229,14 @@ class Five9RestClient:
             return True
 
     def initialize_agent_session(self, auto_accept_notice=True):
+           
         current_agent_login_state = self.agent_login_state
-        if auto_accept_notice == True:
-            self.accept_maintenance_notices(user_type="agent")
-            
-        current_agent_login_state = self.agent_login_state
+
+        if current_agent_login_state == "WORKING":
+            self.supervisor_socket = Five9Socket(
+                self, "supervisor", self.socket_app_key
+            )
+            return True
 
         if current_agent_login_state == "WORKING":
             self.agent_socket = Five9Socket(

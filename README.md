@@ -48,7 +48,7 @@ source venv/bin/activate
 pip install .
 ```
 
-Note, if you need to customize the package, you can install it in editable mode by running `pip install -e .` instead of `pip install .`
+Note, if you need to customize the package, you can install it in editable mode by running `pip install -e .`
 
 # Configuration
 Update the `config.py` file for non-US call center connections.
@@ -151,8 +151,6 @@ client = Five9RestClient(
     socket_app_key="queue_alert_demo", #optional, will default to "python_pack_socket"
 )
 client.initialize_supervisor_session()
-
-# queues = client.supervisor.DomainQueues.invoke()
 
 client.supervisor_socket.connect()
 ```

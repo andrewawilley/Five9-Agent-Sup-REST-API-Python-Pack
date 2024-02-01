@@ -140,7 +140,6 @@ class Five9RestClient:
         self.stationType = kwargs.get("stationType", "EMPTY")
         self.stationState = kwargs.get("stationState", "DISCONNECTED")
 
-
         custom_supervisor_methods = kwargs.get("custom_supervisor_methods", [])
         custom_agent_methods = kwargs.get("custom_agent_methods", [])
         
@@ -196,6 +195,7 @@ class Five9RestClient:
         self, socket_handlers={}, auto_accept_notice=True
     ):
         current_supervisor_login_state = self.supervisor_login_state
+        logging.debug(f"\n\nCurrent Supervisor Login State: {current_supervisor_login_state}")
 
         self.socket_handlers = socket_handlers
         
@@ -216,6 +216,10 @@ class Five9RestClient:
                 session = self.supervisor.SupervisorSessionStart.invoke(
                     self.stationId, self.stationType, self.stationState
                 )
+                current_supervisor_login_state = self.supervisor_login_state
+                if auto_accept_notice == True:
+                    self.accept_maintenance_notices(user_type="supervisor")
+                
             except Five9DuplicateLoginError:
                 logging.info(
                     "Supervisor already logged in, logging out, please try again."
@@ -239,18 +243,18 @@ class Five9RestClient:
             )
             return True
 
-        if current_agent_login_state == "WORKING":
-            self.agent_socket = Five9Socket(
-                self, "agent", self.socket_app_key
-            )
-            return True
+        if current_agent_login_state in ["ACCEPT_NOTICE", "WORKING"]:
+            if auto_accept_notice == True:
+                self.accept_maintenance_notices(user_type="agent")
 
         if current_agent_login_state == "SELECT_STATION":
             try:
                 session = self.agent.AgentSessionStart.invoke(
                     self.stationId, self.stationType, self.stationState
                 )
-                logging.debug(f"AGENT SESSION STARTED Result: {session.__dict__}")
+                current_agent_login_state = self.agent_login_state
+                if auto_accept_notice == True:
+                    self.accept_maintenance_notices(user_type="agent")
 
             except Five9DuplicateLoginError:
                 logging.info("Agent already logged in, logging out, please try again.")

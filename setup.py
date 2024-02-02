@@ -5,7 +5,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='five9_agent_sup_rest',
-    version='0.2.0',
+    version='0.9.2b1',
     packages=find_packages(),
     description='A module for interacting with Five9 Supervisor REST API',
     long_description=open('README.md').read(),

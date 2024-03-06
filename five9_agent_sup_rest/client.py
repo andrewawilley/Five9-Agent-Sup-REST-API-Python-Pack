@@ -217,7 +217,7 @@ class Five9RestClient:
                     self.stationId, self.stationType, self.stationState
                 )
                 current_supervisor_login_state = self.supervisor_login_state
-                if auto_accept_notice == True:
+                if auto_accept_notice == True and current_supervisor_login_state == "ACCEPT_NOTICE":
                     self.accept_maintenance_notices(user_type="supervisor")
                 
             except Five9DuplicateLoginError:

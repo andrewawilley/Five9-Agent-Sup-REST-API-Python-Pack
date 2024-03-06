@@ -35,15 +35,15 @@ Clone the repository to your local machine, create a virtual environment, and in
 ```powershell
 git clone https://github.com/andrewawilley/Five9-Agent-Sup-REST-API-Python-Pack.git
 cd Five9-Agent-Sup-REST-API-Python-Pack
-python -m venv venv
-.\venv\Scripts\activate
-pip install .
+python -m venv venvs\main
+.\venvs\main\Scripts\activate
+pip install -e . 
 ```
 ### Linux/MacOS
 ```bash
 git clone https://github.com/andrewawilley/Five9-Agent-Sup-REST-API-Python-Pack.git
 cd Five9-Agent-Sup-REST-API-Python-Pack
-python -m venv venv
+python -m venv venvs\main
 source venv/bin/activate
 pip install .
 ```

@@ -37,7 +37,7 @@ git clone https://github.com/andrewawilley/Five9-Agent-Sup-REST-API-Python-Pack.
 cd Five9-Agent-Sup-REST-API-Python-Pack
 python -m venv venvs\main
 .\venvs\main\Scripts\activate
-pip install -e . 
+pip install .
 ```
 ### Linux/MacOS
 ```bash

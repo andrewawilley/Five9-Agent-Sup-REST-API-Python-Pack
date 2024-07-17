@@ -23,6 +23,8 @@ DEFAULT_QUEUE_DATA_INCREMENT_ALERTS = {
     # "callbacksInQueue": 1,
     # "voicemailsInQueue": 1,
     # "vivrCallsInQueue": 1
+    # "emailsInQueue": 1,
+    # "chatsInQueue": 1,
 }
 
 

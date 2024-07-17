@@ -220,7 +220,3 @@ client.initialize_supervisor_session()
 
 client.supervisor_socket.connect()
 ```
-
-
-
-```python

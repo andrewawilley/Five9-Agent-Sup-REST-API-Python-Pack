@@ -43,8 +43,8 @@ pip install .
 ```bash
 git clone https://github.com/andrewawilley/Five9-Agent-Sup-REST-API-Python-Pack.git
 cd Five9-Agent-Sup-REST-API-Python-Pack
-python -m venv venvs\main
-source venv/bin/activate
+python3 -m venv venvs/main
+source venvs/main/bin/activate
 pip install .
 ```
 

@@ -146,3 +146,11 @@ class GetAlertByID(SupervisorRestMethod):
         self.path = f"/alerts/{alert_id}"
         super().invoke()
         return self.response.json()
+
+
+class GetDomainDispositions(SupervisorRestMethod):
+    def invoke(self):
+        self.method = "GET"
+        self.path = f"/orgs/{self.config.orgId}/dispositions"
+        super().invoke()
+        return self.response.json()
